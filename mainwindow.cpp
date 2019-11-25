@@ -53,6 +53,8 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(mptxt->document(), &QTextDocument::redoAvailable,
             actionRedo, &QAction::setEnabled);
 
+    connect (mptxt, SIGNAL (cursorPositionChanged()), this, SLOT (slotChangeCurrentPosition()));
+
     actionUndo->setEnabled(mptxt->document()->isUndoAvailable());
     actionRedo->setEnabled(mptxt->document()->isRedoAvailable());
     setWindowModified(mptxt->document()->isModified());
@@ -351,18 +353,20 @@ void MainWindow::slotItalic()
     QTextCharFormat fmt;
     fmt.setFontItalic(actionItalic->isChecked());
     setCharFormat(fmt);
-
 }
 
 void MainWindow::slotBold()
 {
-//    mptxt->setF
+    QTextCharFormat fmt;
+    fmt.setFontWeight(actionBold->isChecked() ? QFont::Bold : QFont::Normal);
+    setCharFormat(fmt);
 }
 
 void MainWindow::slotUnderLine()
 {
-    mptxt->fontUnderline() ? mptxt->setFontUnderline(false) :
-                             mptxt->setFontUnderline(true);
+    QTextCharFormat fmt;
+    fmt.setFontUnderline(actionUnderLine->isChecked());
+    setCharFormat(fmt);
 }
 
 void MainWindow::setCharFormat(const QTextCharFormat &fmt)
@@ -375,11 +379,17 @@ void MainWindow::setCharFormat(const QTextCharFormat &fmt)
 
 }
 
- void MainWindow::positionChanged (const QFont &font)
+void MainWindow::slotChangeCurrentPosition()
+{
+    QFont font = mptxt->currentFont();
+    slotChangeCurrentText(font);
+}
+
+ void MainWindow::slotChangeCurrentText (const QFont &font)
  {
     actionItalic->setChecked(font.italic());
     actionBold->setChecked(font.bold());
-    actionUndo->setChecked(font.underline());
+    actionUnderLine->setChecked(font.underline());
  }
 
 

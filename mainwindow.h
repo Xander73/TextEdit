@@ -80,7 +80,8 @@ private slots:
     void slotBold();
     void slotItalic();    
     void slotUnderLine();
-    void positionChanged (const QFont &font);  //set the format of the current position
+    void slotChangeCurrentText (const QFont &font);  //set the format of the current position
+    void slotChangeCurrentPosition();
 
     //===============
 //    void slotAlign(QAction&);
@@ -89,10 +90,6 @@ private slots:
 //    void slotSaveTxt ();
 //    void slotSavePdf ();
 //    void slotQuit();
-
-
-public slots:
-
  //   void slotRemove();
 
 };
