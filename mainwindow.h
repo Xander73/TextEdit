@@ -65,6 +65,10 @@ private:
     QAction* actionBold;
     QAction* actionItalic;
     QAction* actionUnderLine;
+    QAction* actionAlignCenter;
+    QAction* actionAlignLeft;
+    QAction* actionAlignRight;
+    QAction* actionAlignJustify;
 
 
 
@@ -82,9 +86,10 @@ private slots:
     void slotUnderLine();
     void slotChangeCurrentText (const QFont &font);  //set the format of the current position
     void slotChangeCurrentPosition();
+    void slotAlign(QAction*);
 
     //===============
-//    void slotAlign(QAction&);
+//
 //    void slotTextSize(QString&);
 //    void slotTextStyle(int);
 //    void slotSaveTxt ();

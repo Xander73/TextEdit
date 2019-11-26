@@ -20,6 +20,7 @@
 #include <QEvent>
 #include <QSettings>
 #include <QTextDocumentWriter>
+#include <QActionGroup>
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -30,7 +31,6 @@ MainWindow::MainWindow(QWidget *parent) :
     mpStyleCmbx = new QComboBox(); //text style
     mpSizeCmbx = new QComboBox();
     sizeText = 12;
-    mFind = new Find;
     setCentralWidget(mptxt);
     pal = mptxt->palette();
 
@@ -40,6 +40,8 @@ MainWindow::MainWindow(QWidget *parent) :
     menuEdit();
     menuText();
     ui->mainToolBar->hide();
+
+
 
     QMenu* help = new QMenu(tr("Помощь"));
     ui->menuBar->addMenu(help);    
@@ -71,9 +73,11 @@ MainWindow::MainWindow(QWidget *parent) :
     mptxt->setContextMenuPolicy(Qt::CustomContextMenu);    
     connect(mptxt, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(slotCustomMenuRequested(QPoint)));
 
+    mFind = new Find ();
     //connects
     connect (mFind->getCancel(), SIGNAL (clicked()), this, SLOT (slotFCancel()));
     connect (mFind->getCmdFind(), SIGNAL (clicked()), this, SLOT (slotFind()));
+
 
     if (!currentPath.isEmpty()) {
         QFileInfo f (currentPath);
@@ -162,6 +166,7 @@ void MainWindow::menuEdit()
     a->setShortcut(QKeySequence::Paste);
 #endif
 
+    m->addSeparator();
     a=m->addAction(QIcon(":/resourses/icons/select_all.png"), tr("Выделить все"), mptxt, &QTextEdit::selectAll);
     a->setShortcut(QKeySequence::SelectAll);
 
@@ -196,6 +201,36 @@ void MainWindow::menuText()
     underLine.setUnderline(true);
     actionUnderLine->setFont(underLine);
     actionUnderLine->setShortcut(QKeySequence::Underline);
+
+    m->addSeparator();
+    tb->addSeparator();
+
+    //---Alignment---
+
+    actionAlignCenter = new QAction (QIcon(":/resourses/icons/align-center.png"), tr("Выравние по центру"), this);
+    actionAlignCenter->setCheckable(true);
+    actionAlignCenter->setPriority(QAction::LowPrioriity);
+    actionAlignLeft   = new QAction (QIcon(":/resourses/icons/align-left.png"), tr("Выравнивание по левому краю"), this);
+    actionAlignLeft->setCheckable(true);
+    actionAlignLeft->setPriority(QAction::LowPrioriity);
+    actionAlignRight  = new QAction (QIcon(":/resourses/icons/align-right.png"), tr("Выравние по правому краю"), this);
+    actionAlignRight->setCheckable(true);
+    actionAlignRight->setPriority(QAction::LowPrioriity);
+    actionAlignJustify= new QAction (QIcon(":/resourses/icons/align-justify.png"), tr("Выравнивание по ширине"), this);
+    actionAlignJustify->setCheckable(true);
+    actionAlignJustify->setPriority(QAction::LowPrioriity);
+
+    QActionGroup* alignGroup = new QActionGroup (this);
+    connect (alignGroup, SIGNAL(triggered(QAction*)), this, SLOT(slotAlign(QAction*)));
+
+    alignGroup->addAction(actionAlignLeft);
+    alignGroup->addAction(actionAlignCenter);
+    alignGroup->addAction(actionAlignRight);
+    alignGroup->addAction(actionAlignJustify);
+
+    m->addActions(alignGroup->actions());
+    tb->addActions(alignGroup->actions());
+
 
 }
 
@@ -270,6 +305,7 @@ bool MainWindow::slotSaveAs()
     return true;
 }
 
+
 //void MainWindow::saveTxt()
 //{
 
@@ -284,6 +320,7 @@ bool MainWindow::slotSaveAs()
 
 void MainWindow::slotSearch()
 {
+
     mFind->show();
 }
 
@@ -306,14 +343,15 @@ void MainWindow::slotFind()
     //mptxt->find(mFind->getFLineEdit());
    // mptxt->setPalette()
 
+
     mptxt->find(mFind->getFLineEdit());
     pal = mptxt->palette();
     for (int colorRole=0; colorRole<QPalette::NColorRoles; ++colorRole)
         pal.setColor(QPalette::Inactive, static_cast<QPalette::ColorRole>(colorRole) , pal.color(QPalette::Active, static_cast<QPalette::ColorRole>(colorRole)));
     qDebug()<<mFind->getFLineEdit();
     mptxt->setPalette(pal);
-    //QWidget::activateWindow();
-    //setWindowFlag(Qt::WindowStaysOnTopHint);
+    QWidget::activateWindow();
+    setWindowFlag(Qt::WindowStaysOnTopHint);
 
 
 }
@@ -390,6 +428,31 @@ void MainWindow::slotChangeCurrentPosition()
     actionItalic->setChecked(font.italic());
     actionBold->setChecked(font.bold());
     actionUnderLine->setChecked(font.underline());
+
+    //---Alignment---
+
+    if (mptxt->alignment() & Qt::AlignLeft)
+        actionAlignLeft->setChecked(true);
+    else if (mptxt->alignment() & Qt::AlignHCenter)
+        actionAlignCenter->setChecked(true);
+    else if (mptxt->alignment() & Qt::AlignRight)
+        actionAlignRight->setChecked(true);
+    else if (mptxt->alignment() & Qt::AlignJustify)
+        actionAlignJustify->setChecked(true);
  }
+
+void MainWindow::slotAlign(QAction* action)
+{
+    if (action == actionAlignLeft){
+        mptxt->setAlignment(Qt::AlignLeft);
+    } else if (action == actionAlignCenter) {
+        mptxt->setAlignment(Qt::AlignCenter);
+    } else if (action == actionAlignRight) {
+        mptxt->setAlignment(Qt::AlignRight);
+    } else if (action == actionAlignJustify) {
+        mptxt->setAlignment(Qt::AlignJustify);
+    }
+
+}
 
 
