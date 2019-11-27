@@ -39,7 +39,7 @@ MainWindow::MainWindow(QWidget *parent) :
     menuFile();
     menuEdit();
     menuText();
-    ui->mainToolBar->hide();
+    ui->mainToolBar->hide();  //double tool bar close to tool bar "File"
 
 
 
@@ -57,9 +57,9 @@ MainWindow::MainWindow(QWidget *parent) :
 
     connect (mptxt, SIGNAL (cursorPositionChanged()), this, SLOT (slotChangeCurrentPosition()));
 
+    setWindowModified(mptxt->document()->isModified());
     actionUndo->setEnabled(mptxt->document()->isUndoAvailable());
     actionRedo->setEnabled(mptxt->document()->isRedoAvailable());
-    setWindowModified(mptxt->document()->isModified());
     actionSave->setEnabled(mptxt->document()->isModified());
 
 #ifndef NO_CLIP_BOARD
@@ -231,6 +231,14 @@ void MainWindow::menuText()
     m->addActions(alignGroup->actions());
     tb->addActions(alignGroup->actions());
 
+    //---Tool bar Font---
+    tb = addToolBar(tr("Font"));
+    tb->setAllowedAreas(Qt::TopToolBarArea | Qt::BottomToolBarArea);
+    addToolBarBreak(Qt::TopToolBarArea);
+    addToolBar(tb);
+
+    mpSizeCmbx =
+
 
 }
 
@@ -320,7 +328,6 @@ bool MainWindow::slotSaveAs()
 
 void MainWindow::slotSearch()
 {
-
     mFind->show();
 }
 
