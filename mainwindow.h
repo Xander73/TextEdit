@@ -41,7 +41,7 @@ public:
 private:
     Ui::MainWindow *ui;
 
-    QString currentPath {"C:\\Users\\Саша\\Desktop\\51244651.txt"};    //open file path
+    QString currentPath {"C:/Users/Саша/Desktop/51244651.txt"};    //open file path
     QPalette pal;           //palette to highlight the found string
     QFontComboBox*  mpStyleFontCmbx; //text style
     QComboBox* mpSizeCmbx;
@@ -89,10 +89,10 @@ private slots:
     void slotAlign(QAction*);
     void slotSetTextSize(const QString&);
     void slotTextStyle(const QString &);
+    void slotSaveTxt ();
 
     //===============
 //
-//    void slotSaveTxt ();
 //    void slotSavePdf ();
 //    void slotQuit();
  //   void slotRemove();

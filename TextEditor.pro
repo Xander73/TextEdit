@@ -25,19 +25,15 @@ DEFINES += QT_DEPRECATED_WARNINGS
 CONFIG += c++11
 
 SOURCES += \
-#        TextEditor.cpp \
         Find.cpp \
         main.cpp \
         mainwindow.cpp
 
 HEADERS += \
-#        TextEditor.h \
         Find.h \
         mainwindow.h
 
 FORMS += \
-#        Search.ui \
-#        TextEditor.ui \
         Find.ui \
         mainwindow.ui
 

@@ -280,15 +280,25 @@ void MainWindow::slotOpen()
 
 bool MainWindow::slotSave()
 {
-    QFile file(currentPath);
-    if (!file.open(QIODevice::WriteOnly)) {
-        slotSaveAs();
+    if (currentPath.isEmpty())
+       return slotSaveAs();
+    QTextDocumentWriter text {currentPath};
+    if (text.write(mptxt->document())) {
+        mptxt->document()->setModified(false);
+        statusBar()->showMessage(tr("Wrote \"%1\"").arg(QDir::toNativeSeparators(currentPath)));
     } else {
-        QTextStream stream (&file);
-        stream<<mptxt->toPlainText();
+        statusBar()->showMessage(tr("Could not write a file \"%1\"").arg(currentPath));
     }
-    file.close();
-    ui->statusBar->showMessage(tr("File saved"));
+
+//    QFile file(currentPath);
+//    if (!file.open(QIODevice::WriteOnly)) {
+//        slotSaveAs();
+//    } else {
+//        QTextStream stream (&file);
+//        stream<<mptxt->toPlainText();
+//    }
+//    file.close();
+//    ui->statusBar->showMessage(tr("File saved"));
 
 
 
@@ -326,10 +336,17 @@ bool MainWindow::slotSaveAs()
 }
 
 
-//void MainWindow::saveTxt()
-//{
+void MainWindow::slotSaveTxt ()
+{
+    if (currentPath.isEmpty()) {
+        slotSaveAs();
+        return;
+    }
 
-//}
+
+
+
+}
 
 //void MainWindow::savePdf()
 //{
