@@ -2,25 +2,26 @@
 #include "ui_mainwindow.h"
 #include "Find.h"
 
+#include <QActionGroup>
 #include <QClipboard>
-#include <QTextStream>
+#include <QColor>
+#include <QCoreApplication>
+#include <QDebug>
+#include <QDial>
+#include <QEvent>
+#include <QList>
 #include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
-#include <QDebug>
-#include <QTextCodec>
-#include <QTextCursor>
-#include <QColor>
-#include <QDial>
-#include <QList>
-#include <QCoreApplication>
+#include <QFontDatabase>
+#include <QSettings>
 #include <QStyle>
 #include <QSyntaxHighlighter>
+#include <QTextCodec>
+#include <QTextCursor>
 #include <QTextCharFormat>
-#include <QEvent>
-#include <QSettings>
 #include <QTextDocumentWriter>
-#include <QActionGroup>
+#include <QTextStream>
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -28,20 +29,18 @@ MainWindow::MainWindow(QWidget *parent) :
 {
     ui->setupUi(this);
     mptxt = new QTextEdit(this);
-    mpStyleCmbx = new QComboBox(); //text style
+    mpStyleFontCmbx = new QFontComboBox(); //text style
     mpSizeCmbx = new QComboBox();
-    sizeText = 12;
-    setCentralWidget(mptxt);
-    pal = mptxt->palette();
 
+    setCentralWidget(mptxt);
+
+    pal = mptxt->palette();
 
     //menu and tool bar
     menuFile();
     menuEdit();
     menuText();
-    ui->mainToolBar->hide();  //double tool bar close to tool bar "File"
-
-
+    ui->mainToolBar->hide();  //standard tool bar close
 
     QMenu* help = new QMenu(tr("Помощь"));
     ui->menuBar->addMenu(help);    
@@ -74,7 +73,7 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(mptxt, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(slotCustomMenuRequested(QPoint)));
 
     mFind = new Find ();
-    //connects
+    //connects window Find
     connect (mFind->getCancel(), SIGNAL (clicked()), this, SLOT (slotFCancel()));
     connect (mFind->getCmdFind(), SIGNAL (clicked()), this, SLOT (slotFind()));
 
@@ -237,8 +236,21 @@ void MainWindow::menuText()
     addToolBarBreak(Qt::TopToolBarArea);
     addToolBar(tb);
 
-    mpSizeCmbx =
+    mpSizeCmbx = new QComboBox (tb);
+    mpSizeCmbx->setObjectName("textSize");
+    tb->addWidget(mpSizeCmbx);
+    mpSizeCmbx->setEditable(true);
+    QList<int> standartSizeis = QFontDatabase::standardSizes();
+    for (auto a : standartSizeis)
+        mpSizeCmbx->addItem(QString::number(a));
 
+    connect (mpSizeCmbx, QOverload<const QString &>::of(&QComboBox::activated), this, &MainWindow::slotSetTextSize);
+
+    mpStyleFontCmbx = new QFontComboBox (tb);
+    mpStyleFontCmbx->setObjectName("textStyle");
+    tb->addWidget(mpStyleFontCmbx);
+
+    connect (mpStyleFontCmbx, QOverload<const QString &>::of(&QFontComboBox::activated), this, &MainWindow::slotTextStyle);
 
 }
 
@@ -446,6 +458,12 @@ void MainWindow::slotChangeCurrentPosition()
         actionAlignRight->setChecked(true);
     else if (mptxt->alignment() & Qt::AlignJustify)
         actionAlignJustify->setChecked(true);
+
+    //---Text size---
+    mpSizeCmbx->setCurrentText(QString::number(font.pointSize()));
+
+    //---Text style---
+    mpStyleFontCmbx->setCurrentIndex(mpStyleFontCmbx->findText(QFontInfo(font).family()));
  }
 
 void MainWindow::slotAlign(QAction* action)
@@ -462,4 +480,20 @@ void MainWindow::slotAlign(QAction* action)
 
 }
 
+void MainWindow::slotSetTextSize (const QString& s)
+{
+    if (s.toFloat()>0) {
+        QTextCharFormat format;
+        format.setFontPointSize(qreal (s.toFloat()));
+        setCharFormat(format);
+    }
+}
+
+
+void MainWindow::slotTextStyle(const QString &style)
+{
+    QTextCharFormat format;
+    format.setFontFamily(style);
+    setCharFormat(format);
+}
 

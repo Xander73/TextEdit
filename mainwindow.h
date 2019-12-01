@@ -10,14 +10,15 @@
 #include <QtGui/QMainWindow>
 #endif
 
+#include <QAction>
+#include <QComboBox>
 #include <QContextMenuEvent>
-#include <QMenu>
-#include <QTextEdit>
+#include <QFontComboBox>
 #include <QMenuBar>
+#include <QMenu>
 #include <QPoint>
 #include <QString>
-#include <QComboBox>
-#include <QAction>
+#include <QTextEdit>
 
 #include "Find.h"
 
@@ -42,9 +43,8 @@ private:
 
     QString currentPath {"C:\\Users\\Саша\\Desktop\\51244651.txt"};    //open file path
     QPalette pal;           //palette to highlight the found string
-    QComboBox* mpStyleCmbx; //text style
+    QFontComboBox*  mpStyleFontCmbx; //text style
     QComboBox* mpSizeCmbx;
-    int sizeText;
     QString fileName;
 
         // menu bar and tool bar
@@ -87,15 +87,16 @@ private slots:
     void slotChangeCurrentText (const QFont &font);  //set the format of the current position
     void slotChangeCurrentPosition();
     void slotAlign(QAction*);
+    void slotSetTextSize(const QString&);
+    void slotTextStyle(const QString &);
 
     //===============
 //
-//    void slotTextSize(QString&);
-//    void slotTextStyle(int);
 //    void slotSaveTxt ();
 //    void slotSavePdf ();
 //    void slotQuit();
  //   void slotRemove();
+//    void slotChangedDocument();
 
 };
 
