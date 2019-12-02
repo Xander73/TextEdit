@@ -45,6 +45,7 @@ private:
     QPalette pal;           //palette to highlight the found string
     QFontComboBox*  mpStyleFontCmbx; //text style
     QComboBox* mpSizeCmbx;
+    QComboBox* mpCodecCmbx;
     QString fileName;
 
         // menu bar and tool bar
@@ -90,13 +91,15 @@ private slots:
     void slotSetTextSize(const QString&);
     void slotTextStyle(const QString &);
     void slotSaveTxt ();
+    void slotSavePdf ();
+    void setCodec(QString newCodec);
 
     //===============
 //
-//    void slotSavePdf ();
 //    void slotQuit();
  //   void slotRemove();
 //    void slotChangedDocument();
+//    void nameCurrentFile();
 
 };
 

@@ -14,6 +14,7 @@
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QFontDatabase>
+#include <QtPrintSupport/qprinter.h>
 #include <QSettings>
 #include <QStyle>
 #include <QSyntaxHighlighter>
@@ -22,6 +23,19 @@
 #include <QTextCharFormat>
 #include <QTextDocumentWriter>
 #include <QTextStream>
+
+#if defined(QT_PRINTSUPPORT_LIB)
+#include <QtPrintSupport/qtprintsupportglobal.h>
+#if QT_CONFIG(printer)
+#if QT_CONFIG(printdialog)
+#include <QPrintDialog>
+#endif
+#include <QPrinter>
+#if QT_CONFIG(printpreviewdialog)
+#include <QPrintPreviewDialog>
+#endif
+#endif
+#endif
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -84,6 +98,8 @@ MainWindow::MainWindow(QWidget *parent) :
     } else {
         setWindowTitle("New document");
     }
+
+
 
     slotOpen();
     //load old settings
@@ -252,6 +268,41 @@ void MainWindow::menuText()
 
     connect (mpStyleFontCmbx, QOverload<const QString &>::of(&QFontComboBox::activated), this, &MainWindow::slotTextStyle);
 
+    //---Codec comboBox---
+    mpCodecCmbx = new QComboBox (tb);
+    mpCodecCmbx->setObjectName("codec");
+    tb->addWidget(mpCodecCmbx);
+// Вот некоторые кодеки из доступных в Qt
+    QStringList listCodec;
+    listCodec<< "Apple Roman"
+             << "Big5"
+             << "Big5-HKSCS"
+             << "CP949"
+             << "EUC-JP"
+             << "EUC-KR"
+             << "KOI8-R"
+             << "KOI8-U"
+             << "ROMAN8"
+             << "Shift-JIS"
+             << "TIS-620"
+             << "TSCII"
+             << "UTF-8"
+             << "UTF-16"
+             << "UTF-16BE"
+             << "Windows-1250" // to 1258
+             << "Windows-1251"; // Русский
+
+
+        // Добавим из в comboBox
+       mpCodecCmbx->addItems(listCodec);
+
+        // Подключим сигнал изменеия comboBox
+        connect(mpCodecCmbx,SIGNAL(activated(QString)),this,SLOT(setCodec(QString)));
+
+        // Установим comboBox на нашу кодировку
+        mpCodecCmbx->setCurrentIndex(listCodec.indexOf("Windows-1251"));
+
+
 }
 
 void MainWindow::slotNewFile()
@@ -270,7 +321,7 @@ void MainWindow::slotOpen()
         qDebug()<<tr("File is not open for read");
     } else {
         QTextStream stream (&file);
-        stream.setCodec(QTextCodec::codecForName("Window-1251"));
+        stream.setCodec(QTextCodec::codecForName("UTF-8"));
         mptxt->setText(stream.readAll());
         ui->statusBar->showMessage(tr("File open"));
     }
@@ -282,13 +333,8 @@ bool MainWindow::slotSave()
 {
     if (currentPath.isEmpty())
        return slotSaveAs();
-    QTextDocumentWriter text {currentPath};
-    if (text.write(mptxt->document())) {
-        mptxt->document()->setModified(false);
-        statusBar()->showMessage(tr("Wrote \"%1\"").arg(QDir::toNativeSeparators(currentPath)));
-    } else {
-        statusBar()->showMessage(tr("Could not write a file \"%1\"").arg(currentPath));
-    }
+//    slotSaveTxt();
+    slotSavePdf();
 
 //    QFile file(currentPath);
 //    if (!file.open(QIODevice::WriteOnly)) {
@@ -342,16 +388,25 @@ void MainWindow::slotSaveTxt ()
         slotSaveAs();
         return;
     }
-
+    QTextDocumentWriter text {currentPath};
+    if (text.write(mptxt->document())) {
+        mptxt->document()->setModified(false);
+        statusBar()->showMessage(tr("Wrote \"%1\"").arg(QDir::toNativeSeparators(currentPath)));
+    } else {
+        statusBar()->showMessage(tr("Could not write a file \"%1\"").arg(currentPath));
+    }
 
 
 
 }
 
-//void MainWindow::savePdf()
-//{
-//    QTextEdit::fi
-//}
+void MainWindow::slotSavePdf()
+{
+    QPrinter pdf;
+    pdf.setOutputFormat(QPrinter::PdfFormat);
+    pdf.setOutputFileName("D:/Download/New.pdf");
+    mptxt->document()->print(&pdf);
+}
 
 
 
@@ -512,5 +567,17 @@ void MainWindow::slotTextStyle(const QString &style)
     QTextCharFormat format;
     format.setFontFamily(style);
     setCharFormat(format);
+}
+
+void MainWindow::setCodec(QString newCodec)
+{
+    // Выбор кодека
+     QTextCodec *codec = QTextCodec::codecForName(newCodec.toUtf8());
+
+     // Изменяем кодировку
+     QByteArray encodedString = codec->fromUnicode(mptxt->document()->toPlainText());
+
+     // В label вписываем текст с новой кодировкой
+     mptxt->setText(encodedString);
 }
 
