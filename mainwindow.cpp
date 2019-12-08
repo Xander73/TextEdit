@@ -3,6 +3,7 @@
 #include "Find.h"
 
 #include <QActionGroup>
+#include <QtAlgorithms>
 #include <QClipboard>
 #include <QColor>
 #include <QCoreApplication>
@@ -14,6 +15,7 @@
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QFontDatabase>
+#include <QMessageBox>
 #include <QtPrintSupport/qprinter.h>
 #include <QSettings>
 #include <QStyle>
@@ -43,12 +45,12 @@ MainWindow::MainWindow(QWidget *parent) :
 {
     ui->setupUi(this);
     mptxt = new QTextEdit(this);
-    mpStyleFontCmbx = new QFontComboBox(); //text style
-    mpSizeCmbx = new QComboBox();
+    mpStyleFontCmbx = new QFontComboBox();  //initialize text style
+    mpSizeCmbx = new QComboBox();           //initialize combo box
 
     setCentralWidget(mptxt);
 
-    pal = mptxt->palette();
+    pal = mptxt->palette();     //highliting the position founded
 
     //menu and tool bar
     menuFile();
@@ -71,6 +73,7 @@ MainWindow::MainWindow(QWidget *parent) :
     connect (mptxt, SIGNAL (cursorPositionChanged()), this, SLOT (slotChangeCurrentPosition()));
 
     setWindowModified(mptxt->document()->isModified());
+
     actionUndo->setEnabled(mptxt->document()->isUndoAvailable());
     actionRedo->setEnabled(mptxt->document()->isRedoAvailable());
     actionSave->setEnabled(mptxt->document()->isModified());
@@ -99,9 +102,6 @@ MainWindow::MainWindow(QWidget *parent) :
         setWindowTitle("New document");
     }
 
-
-
-    slotOpen();
     //load old settings
     loadSetting();
 }
@@ -300,14 +300,14 @@ void MainWindow::menuText()
         connect(mpCodecCmbx,SIGNAL(activated(QString)),this,SLOT(setCodec(QString)));
 
         // Установим comboBox на нашу кодировку
-        mpCodecCmbx->setCurrentIndex(listCodec.indexOf("Windows-1251"));
+        mpCodecCmbx->setCurrentIndex(listCodec.indexOf("UTF-8"));
 
 
 }
 
 void MainWindow::slotNewFile()
 {
-    slotSave();
+   // slotSave();
     mptxt->clear();
     currentPath = "";
     ui->statusBar->showMessage(tr("New file"));
@@ -315,7 +315,7 @@ void MainWindow::slotNewFile()
 
 void MainWindow::slotOpen()
 {
-    //currentPath = QFileDialog::getOpenFileName(nullptr, tr("Open File"),"C:\\Users\\Саша\\Desktop", "");
+    currentPath = QFileDialog::getOpenFileName(nullptr, tr("Open File"),"C:\\Users\\Саша\\Desktop", "");
     QFile file (currentPath);
     if (!file.open(QIODevice::ReadOnly | QIODevice::WriteOnly)) {
         qDebug()<<tr("File is not open for read");
@@ -324,8 +324,10 @@ void MainWindow::slotOpen()
         stream.setCodec(QTextCodec::codecForName("UTF-8"));
         mptxt->setText(stream.readAll());
         ui->statusBar->showMessage(tr("File open"));
+
     }
     file.close();
+
 
 }
 
@@ -333,51 +335,43 @@ bool MainWindow::slotSave()
 {
     if (currentPath.isEmpty())
        return slotSaveAs();
-//    slotSaveTxt();
-    slotSavePdf();
+    slotSaveTxt();
 
-//    QFile file(currentPath);
-//    if (!file.open(QIODevice::WriteOnly)) {
-//        slotSaveAs();
-//    } else {
-//        QTextStream stream (&file);
-//        stream<<mptxt->toPlainText();
-//    }
-//    file.close();
-//    ui->statusBar->showMessage(tr("File saved"));
-
-
-
-//    if (fileName.isEmpty())
-//        return slotSaveAs();
-//    if (fileName.startsWith(QStringLiteral(":/")))
-//        return slotSaveAs();
-
-//    QTextDocumentWriter writer(fileName);
-//    bool success = writer.write(mptxt->document());
-//    if (success) {
-//        mptxt->document()->setModified(false);
-//        statusBar()->showMessage(tr("Wrote \"%1\"").arg(QDir::toNativeSeparators(fileName)));
-//    } else {
-//        statusBar()->showMessage(tr("Could not write to file \"%1\"")
-//                                 .arg(QDir::toNativeSeparators(fileName)));
-//    }
     return true;
 }
 
 bool MainWindow::slotSaveAs()
 {
-    QStringList strLst {"*.txt", "*.pdf"};
-    QString fileSave = QFileDialog::getSaveFileName(nullptr, tr("Save file"), "","*.txt;; *.pdf");
-    QFile file (fileSave);
-    if(!file.open(QIODevice::WriteOnly)) {
-            qDebug()<<tr("File is not open to Save ass");
-    } else {
-        QTextStream stream (&file);
-        stream<<mptxt->toPlainText();
+    currentPath = QFileDialog::getSaveFileName(nullptr, tr("Save file"), "","*.txt;; *.pdf");
+    std::reverse (currentPath.begin(), currentPath.end());  //better use the find_end, but the Qt have not it
+    auto pos = std::find (currentPath.begin(), currentPath.end(), '.');
+    QString format (currentPath.begin(), pos - currentPath.begin());
+
+    std::reverse (currentPath.begin(), currentPath.end());  //return right order of the string
+    std::reverse (format.begin(), format.end());            // the same
+
+    if (pos==currentPath.end()) {
+        QMessageBox::warning (this, tr("Attention"), tr("Undefined format"), QMessageBox::Ok);
+        ui->statusBar->showMessage(tr("Format is not available"));
+        return false;
     }
-    file.close();
-    ui->statusBar->showMessage(tr("File saved"));
+    else {
+        qDebug()<<"format=" <<format;
+        if (format=="pdf") {
+            slotSavePdf();
+            ui->statusBar->showMessage(tr("File saved %1").arg(currentPath));
+        }
+        else if (format=="txt") {
+            slotSaveTxt();
+            ui->statusBar->showMessage(tr("File saved %1").arg(currentPath));
+        }
+        else {
+            QMessageBox::warning (this, tr("Attention"), tr("Undefined format"), QMessageBox::Ok);
+            ui->statusBar->showMessage(tr("Format is not available"));
+            return false;
+        }
+
+    }
     return true;
 }
 
@@ -391,7 +385,7 @@ void MainWindow::slotSaveTxt ()
     QTextDocumentWriter text {currentPath};
     if (text.write(mptxt->document())) {
         mptxt->document()->setModified(false);
-        statusBar()->showMessage(tr("Wrote \"%1\"").arg(QDir::toNativeSeparators(currentPath)));
+        statusBar()->showMessage(tr("Wrote \"%1\"").arg(QDir::toNativeSeparators(currentPath)), 5);
     } else {
         statusBar()->showMessage(tr("Could not write a file \"%1\"").arg(currentPath));
     }
@@ -404,7 +398,7 @@ void MainWindow::slotSavePdf()
 {
     QPrinter pdf;
     pdf.setOutputFormat(QPrinter::PdfFormat);
-    pdf.setOutputFileName("D:/Download/New.pdf");
+    pdf.setOutputFileName(currentPath);
     mptxt->document()->print(&pdf);
 }
 
@@ -571,13 +565,14 @@ void MainWindow::slotTextStyle(const QString &style)
 
 void MainWindow::setCodec(QString newCodec)
 {
-    // Выбор кодека
+    // Codec selection
      QTextCodec *codec = QTextCodec::codecForName(newCodec.toUtf8());
 
-     // Изменяем кодировку
-     QByteArray encodedString = codec->fromUnicode(mptxt->document()->toPlainText());
-
-     // В label вписываем текст с новой кодировкой
-     mptxt->setText(encodedString);
+     // Change codec and set new encoded text
+     mptxt->setText(codec->fromUnicode(mptxt->document()->toPlainText()));
 }
 
+void slotChangedDocument()
+{
+
+}
