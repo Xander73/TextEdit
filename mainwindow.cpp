@@ -70,6 +70,9 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(mptxt->document(), &QTextDocument::redoAvailable,
             actionRedo, &QAction::setEnabled);
 
+    connect(mptxt->document(), &QTextDocument::modificationChanged,
+            this, &MainWindow::slotChangedDocument);
+
     connect (mptxt, SIGNAL (cursorPositionChanged()), this, SLOT (slotChangeCurrentPosition()));
 
     setWindowModified(mptxt->document()->isModified());
@@ -121,7 +124,6 @@ void MainWindow::slotCustomMenuRequested(QPoint pos)
 
     mpcMenu->popup(mptxt->viewport()->mapToGlobal(pos));
 }
-
 
 void MainWindow::menuFile()
 {
@@ -311,12 +313,14 @@ void MainWindow::slotNewFile()
     mptxt->clear();
     currentPath = "";
     ui->statusBar->showMessage(tr("New file"));
+    setWindowTitle("New document");
 }
 
 void MainWindow::slotOpen()
 {
     currentPath = QFileDialog::getOpenFileName(nullptr, tr("Open File"),"C:\\Users\\Саша\\Desktop", "");
     QFile file (currentPath);
+    qDebug()<<QFileInfo (currentPath).fileName();
     if (!file.open(QIODevice::ReadOnly | QIODevice::WriteOnly)) {
         qDebug()<<tr("File is not open for read");
     } else {
@@ -324,11 +328,10 @@ void MainWindow::slotOpen()
         stream.setCodec(QTextCodec::codecForName("UTF-8"));
         mptxt->setText(stream.readAll());
         ui->statusBar->showMessage(tr("File open"));
-
     }
     file.close();
 
-
+    setWindowTitle(QFileInfo (currentPath).fileName());
 }
 
 bool MainWindow::slotSave()
@@ -337,18 +340,20 @@ bool MainWindow::slotSave()
        return slotSaveAs();
     slotSaveTxt();
 
+    setWindowTitle(QFileInfo (currentPath).fileName());
+
     return true;
 }
 
 bool MainWindow::slotSaveAs()
 {
     currentPath = QFileDialog::getSaveFileName(nullptr, tr("Save file"), "","*.txt;; *.pdf");
-    std::reverse (currentPath.begin(), currentPath.end());  //better use the find_end, but the Qt have not it
-    auto pos = std::find (currentPath.begin(), currentPath.end(), '.');
-    QString format (currentPath.begin(), pos - currentPath.begin());
+    QString fileName = QFileInfo (currentPath).fileName();
+    std::reverse (fileName.begin(), fileName.end());  //better use the find_end, but the Qt have not it
+    auto pos = std::find (fileName.begin(), fileName.end(), '.');
+    QString format (fileName.begin(), pos - fileName.begin());
 
-    std::reverse (currentPath.begin(), currentPath.end());  //return right order of the string
-    std::reverse (format.begin(), format.end());            // the same
+    std::reverse (format.begin(), format.end());    //right order of the string
 
     if (pos==currentPath.end()) {
         QMessageBox::warning (this, tr("Attention"), tr("Undefined format"), QMessageBox::Ok);
@@ -356,7 +361,6 @@ bool MainWindow::slotSaveAs()
         return false;
     }
     else {
-        qDebug()<<"format=" <<format;
         if (format=="pdf") {
             slotSavePdf();
             ui->statusBar->showMessage(tr("File saved %1").arg(currentPath));
@@ -370,11 +374,12 @@ bool MainWindow::slotSaveAs()
             ui->statusBar->showMessage(tr("Format is not available"));
             return false;
         }
-
     }
+
+    setWindowTitle(QFileInfo (currentPath).fileName());
+
     return true;
 }
-
 
 void MainWindow::slotSaveTxt ()
 {
@@ -385,13 +390,10 @@ void MainWindow::slotSaveTxt ()
     QTextDocumentWriter text {currentPath};
     if (text.write(mptxt->document())) {
         mptxt->document()->setModified(false);
-        statusBar()->showMessage(tr("Wrote \"%1\"").arg(QDir::toNativeSeparators(currentPath)), 5);
+        statusBar()->showMessage(tr("Wrote %1").arg(QDir::toNativeSeparators(currentPath)), 5);
     } else {
-        statusBar()->showMessage(tr("Could not write a file \"%1\"").arg(currentPath));
+        statusBar()->showMessage(tr("Could not write a file %1").arg(currentPath));
     }
-
-
-
 }
 
 void MainWindow::slotSavePdf()
@@ -400,9 +402,9 @@ void MainWindow::slotSavePdf()
     pdf.setOutputFormat(QPrinter::PdfFormat);
     pdf.setOutputFileName(currentPath);
     mptxt->document()->print(&pdf);
+
+    setWindowTitle(QFileInfo (currentPath).fileName());
 }
-
-
 
 void MainWindow::slotSearch()
 {
@@ -455,7 +457,7 @@ void MainWindow::saveSetting()
     ui->statusBar->showMessage("Settings save");
 }
 
-void MainWindow:: loadSetting()
+void MainWindow::loadSetting()
 {
     QSettings settings ("settings.conf", QSettings::IniFormat);
     QFile file (currentPath);
@@ -555,7 +557,6 @@ void MainWindow::slotSetTextSize (const QString& s)
     }
 }
 
-
 void MainWindow::slotTextStyle(const QString &style)
 {
     QTextCharFormat format;
@@ -572,7 +573,8 @@ void MainWindow::setCodec(QString newCodec)
      mptxt->setText(codec->fromUnicode(mptxt->document()->toPlainText()));
 }
 
-void slotChangedDocument()
+void MainWindow::slotChangedDocument()
 {
-
+    QString fileName = QFileInfo (currentPath).fileName();
+    currentPath.isEmpty() ? setWindowTitle("New document*") : setWindowTitle(fileName+'*');
 }
