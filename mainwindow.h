@@ -1,6 +1,5 @@
 #include <QtGlobal>
 
-
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
@@ -34,6 +33,7 @@ public:
     explicit MainWindow(QWidget *parent = nullptr);    
     QTextEdit* mptxt;
     Find* mFind;
+
     void saveSetting();
 
     ~MainWindow();
@@ -54,6 +54,7 @@ private:
     void menuText();
 
     void setCharFormat(const QTextCharFormat& fmt);
+
     void loadSetting();
 
 
@@ -77,6 +78,7 @@ private slots:
     void slotCustomMenuRequested(QPoint pos);
     void slotNewFile();
     void slotOpen();
+    void slotLoad(const QString &path);
     bool slotSave();
     bool slotSaveAs();
     void slotSearch();
@@ -94,12 +96,11 @@ private slots:
     void slotSavePdf ();
     void setCodec(QString newCodec);
     void slotChangedDocument();
+    void closeEvent(QCloseEvent* e);
 
     //===============
 //
-//    void slotQuit();
  //   void slotRemove();
-//    void nameCurrentFile();
 
 };
 

@@ -5,6 +5,7 @@
 #include <QActionGroup>
 #include <QtAlgorithms>
 #include <QClipboard>
+#include <QCloseEvent>
 #include <QColor>
 #include <QCoreApplication>
 #include <QDebug>
@@ -318,20 +319,28 @@ void MainWindow::slotNewFile()
 
 void MainWindow::slotOpen()
 {
-    currentPath = QFileDialog::getOpenFileName(nullptr, tr("Open File"),"C:\\Users\\Саша\\Desktop", "");
-    QFile file (currentPath);
-    qDebug()<<QFileInfo (currentPath).fileName();
-    if (!file.open(QIODevice::ReadOnly | QIODevice::WriteOnly)) {
-        qDebug()<<tr("File is not open for read");
-    } else {
-        QTextStream stream (&file);
-        stream.setCodec(QTextCodec::codecForName("UTF-8"));
-        mptxt->setText(stream.readAll());
-        ui->statusBar->showMessage(tr("File open"));
-    }
-    file.close();
+    currentPath = QFileDialog::getOpenFileName(nullptr, tr("Open File"),"C:\\Users\\Саша\\Desktop", "*.txt");
+    slotLoad(currentPath);
 
     setWindowTitle(QFileInfo (currentPath).fileName());
+}
+
+void MainWindow::slotLoad(const QString &currentPath)
+{
+    if (!currentPath.isEmpty()) {
+        QFile file (currentPath);
+        if (!file.open(QIODevice::ReadOnly | QIODevice::WriteOnly)) {
+            qDebug()<<tr("File is not open for read");
+        } else {
+            QTextStream stream (&file);
+            stream.setCodec(QTextCodec::codecForName("UTF-8"));
+            mptxt->setText(stream.readAll());
+            ui->statusBar->showMessage(tr("File open"), 1000);
+        }
+        file.close();
+    }
+    else
+        ui->statusBar->showMessage(tr("No file to load"), 5000);
 }
 
 bool MainWindow::slotSave()
@@ -340,7 +349,7 @@ bool MainWindow::slotSave()
        return slotSaveAs();
     slotSaveTxt();
 
-    setWindowTitle(QFileInfo (currentPath).fileName());
+    setWindowTitle(QFileInfo (currentPath).fileName());  //if the saved file has a new name, change the window name to the new name
 
     return true;
 }
@@ -348,14 +357,10 @@ bool MainWindow::slotSave()
 bool MainWindow::slotSaveAs()
 {
     currentPath = QFileDialog::getSaveFileName(nullptr, tr("Save file"), "","*.txt;; *.pdf");
-    QString fileName = QFileInfo (currentPath).fileName();
-    std::reverse (fileName.begin(), fileName.end());  //better use the find_end, but the Qt have not it
-    auto pos = std::find (fileName.begin(), fileName.end(), '.');
-    QString format (fileName.begin(), pos - fileName.begin());
+    QString fileName = QFileInfo (currentPath).fileName();    
+    QString format = QFileInfo (currentPath).suffix();
 
-    std::reverse (format.begin(), format.end());    //right order of the string
-
-    if (pos==currentPath.end()) {
+    if (format!="txt" || format != "pdf") {
         QMessageBox::warning (this, tr("Attention"), tr("Undefined format"), QMessageBox::Ok);
         ui->statusBar->showMessage(tr("Format is not available"));
         return false;
@@ -368,11 +373,6 @@ bool MainWindow::slotSaveAs()
         else if (format=="txt") {
             slotSaveTxt();
             ui->statusBar->showMessage(tr("File saved %1").arg(currentPath));
-        }
-        else {
-            QMessageBox::warning (this, tr("Attention"), tr("Undefined format"), QMessageBox::Ok);
-            ui->statusBar->showMessage(tr("Format is not available"));
-            return false;
         }
     }
 
@@ -451,26 +451,35 @@ void MainWindow::slotFCancel()
 void MainWindow::saveSetting()
 {
     QSettings settings ("settings.conf", QSettings::IniFormat);
-    settings.beginGroup("textSettings");
-    settings.setValue ("text", currentPath);
+
+    settings.beginGroup("positionSettings");
+
     settings.endGroup();
+
+    settings.beginGroup("parametersSetting");
+    settings.setValue("currentPath", currentPath);
+    settings.setValue("mptxtText", mptxt->toPlainText());
+    settings.setValue("mpStyleFontCmbx", mpSizeCmbx->currentText());
+    settings.setValue("mpSizeCmbx", mpSizeCmbx->currentText());
+    settings.setValue("mpCodecCmbx", mpCodecCmbx->currentText());
+
+    settings.endGroup();
+
     ui->statusBar->showMessage("Settings save");
 }
 
 void MainWindow::loadSetting()
 {
     QSettings settings ("settings.conf", QSettings::IniFormat);
-    QFile file (currentPath);
-    if (!file.open(QIODevice::ReadOnly | QIODevice::WriteOnly)) {
+    currentPath = settings.value("currenPath").toString();
+    mptxt->setPlainText(settings.value("mptxText").toString());
+    mpStyleFontCmbx->setCurrentText(settings.value("mpStyleFontCmbx").toString());
+    mpSizeCmbx->setCurrentText(settings.value("mpSizeCmbx").toString());
+    mpCodecCmbx->setCurrentText(settings.value("mpCodecCmbx").toString());
 
-        qDebug()<<tr("File is not open for read");
-    } else {
-        QTextStream stream (&file);
-        stream.setCodec(QTextCodec::codecForName("Window-1251"));
-        mptxt->setText(stream.readAll());
-        ui->statusBar->showMessage(tr("File open"));
-    }
-    file.close();
+
+    slotLoad(currentPath);
+    void slotChangeCurrentPosition();
 }
 
 void MainWindow::slotItalic()
@@ -532,6 +541,7 @@ void MainWindow::slotChangeCurrentPosition()
 
     //---Text style---
     mpStyleFontCmbx->setCurrentIndex(mpStyleFontCmbx->findText(QFontInfo(font).family()));
+
  }
 
 void MainWindow::slotAlign(QAction* action)
@@ -577,4 +587,23 @@ void MainWindow::slotChangedDocument()
 {
     QString fileName = QFileInfo (currentPath).fileName();
     currentPath.isEmpty() ? setWindowTitle("New document*") : setWindowTitle(fileName+'*');
+}
+
+void MainWindow::closeEvent(QCloseEvent* e)
+{
+    if (mptxt->document()->isModified()) {
+        QMessageBox::StandardButton stb = QMessageBox::warning(this, QCoreApplication::applicationName(),
+                                                                tr("The document has been modified.\n"
+                                                                   "Do you want to save your changes?"),
+                                                                    QMessageBox::Save| QMessageBox::Discard |QMessageBox::Cancel);
+        if (stb == QMessageBox::Save) {
+            slotSave();
+            e->accept();
+        }
+        else {
+            e->ignore();
+            QApplication::quit();
+        }
+    }
+
 }
