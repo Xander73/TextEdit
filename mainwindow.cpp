@@ -17,6 +17,7 @@
 #include <QFileInfo>
 #include <QFontDatabase>
 #include <QMessageBox>
+#include <QMimeData>
 #include <QtPrintSupport/qprinter.h>
 #include <QSettings>
 #include <QStyle>
@@ -99,12 +100,12 @@ MainWindow::MainWindow(QWidget *parent) :
     connect (mFind->getCmdFind(), SIGNAL (clicked()), this, SLOT (slotFind()));
 
 
-    if (!currentPath.isEmpty()) {
-        QFileInfo f (currentPath);
-        setWindowTitle(f.baseName());
-    } else {
-        setWindowTitle("New document");
-    }
+//    if (!currentPath.isEmpty()) {
+//        QFileInfo f (currentPath);
+//        setWindowTitle(f.baseName());
+//    } else {
+//        setWindowTitle("New document");
+//    }
 
     //load old settings
     loadSetting();
@@ -112,15 +113,17 @@ MainWindow::MainWindow(QWidget *parent) :
 
 MainWindow::~MainWindow()
 {
+    saveSetting();
     delete ui;
 }
 
 void MainWindow::slotCustomMenuRequested(QPoint pos)
 {
     QMenu* mpcMenu = new QMenu (this);
-    mpcMenu->addAction(QIcon("://resourses//icons//cut.png"),tr("Вырезать"), mptxt, SLOT(cut()));
-    mpcMenu->addAction(QIcon("://resourses//icons//copy.png"),tr("Копировать"), mptxt, SLOT(copy()));
-    mpcMenu->addAction(QIcon("://resourses//icons//paste.png"),tr("Вставить"), mptxt, SLOT(paste()));
+    mpcMenu->addAction(actionCut);
+    mpcMenu->addAction(actionCopy);
+    mpcMenu->addAction(actionPaste);
+    mpcMenu->addAction(actionRemove);
     mpcMenu->addSeparator();
 
     mpcMenu->popup(mptxt->viewport()->mapToGlobal(pos));
@@ -165,7 +168,7 @@ void MainWindow::menuEdit()
     tb->addAction(actionUndo);
     actionUndo->setShortcut(QKeySequence::Undo);
 
-    actionRedo=m->addAction(QIcon(":/resourses/icons/redo.png"), tr("Повторить"), mptxt, &QTextEdit::redo);
+    actionRedo=m->addAction(QIcon(":/resourses/icons/redo.png"), tr("Восстановить"), mptxt, &QTextEdit::redo);
     tb->addAction(actionRedo);
     actionRedo->setShortcut(QKeySequence::Redo);
     m->addSeparator();
@@ -179,10 +182,17 @@ void MainWindow::menuEdit()
     tb->addAction(actionCopy);
     actionCopy->setShortcut(QKeySequence::Copy);
 
-    a=m->addAction(QIcon(":/resourses/icons/paste.png"), tr("&Вставить"), mptxt, &QTextEdit::paste);
-    tb->addAction(a);
-    a->setShortcut(QKeySequence::Paste);
+    actionPaste=m->addAction(QIcon(":/resourses/icons/paste.png"), tr("&Вставить"), mptxt, &QTextEdit::paste);
+    tb->addAction(actionPaste);
+    actionPaste->setShortcut(QKeySequence::Paste);
+    if (const QMimeData* md = QApplication::clipboard()->mimeData())
+        actionPaste->setEnabled(md->hasText());
+
 #endif
+
+    actionRemove = m->addAction(QIcon(":/resourses/icons/remove.png"), tr("Удалить"), this, &MainWindow::slotRemove);
+    tb->addAction(actionRemove);
+
 
     m->addSeparator();
     a=m->addAction(QIcon(":/resourses/icons/select_all.png"), tr("Выделить все"), mptxt, &QTextEdit::selectAll);
@@ -263,6 +273,7 @@ void MainWindow::menuText()
     for (auto a : standartSizeis)
         mpSizeCmbx->addItem(QString::number(a));
 
+
     connect (mpSizeCmbx, QOverload<const QString &>::of(&QComboBox::activated), this, &MainWindow::slotSetTextSize);
 
     mpStyleFontCmbx = new QFontComboBox (tb);
@@ -275,7 +286,8 @@ void MainWindow::menuText()
     mpCodecCmbx = new QComboBox (tb);
     mpCodecCmbx->setObjectName("codec");
     tb->addWidget(mpCodecCmbx);
-// Вот некоторые кодеки из доступных в Qt
+
+// Some codecs
     QStringList listCodec;
     listCodec<< "Apple Roman"
              << "Big5"
@@ -295,17 +307,9 @@ void MainWindow::menuText()
              << "Windows-1250" // to 1258
              << "Windows-1251"; // Русский
 
-
-        // Добавим из в comboBox
        mpCodecCmbx->addItems(listCodec);
-
-        // Подключим сигнал изменеия comboBox
-        connect(mpCodecCmbx,SIGNAL(activated(QString)),this,SLOT(setCodec(QString)));
-
-        // Установим comboBox на нашу кодировку
-        mpCodecCmbx->setCurrentIndex(listCodec.indexOf("UTF-8"));
-
-
+       connect(mpCodecCmbx,SIGNAL(activated(QString)),this,SLOT(setCodec(QString)));
+       mpCodecCmbx->setCurrentIndex(listCodec.indexOf("UTF-8"));
 }
 
 void MainWindow::slotNewFile()
@@ -319,8 +323,11 @@ void MainWindow::slotNewFile()
 
 void MainWindow::slotOpen()
 {
-    currentPath = QFileDialog::getOpenFileName(nullptr, tr("Open File"),"C:\\Users\\Саша\\Desktop", "*.txt");
-    slotLoad(currentPath);
+
+
+    slotLoad(
+                currentPath = QFileDialog::getOpenFileName(nullptr, tr("Open File"),"", "*.txt;; *.html;; *.*")
+            );
 
     setWindowTitle(QFileInfo (currentPath).fileName());
 }
@@ -330,70 +337,67 @@ void MainWindow::slotLoad(const QString &currentPath)
     if (!currentPath.isEmpty()) {
         QFile file (currentPath);
         if (!file.open(QIODevice::ReadOnly | QIODevice::WriteOnly)) {
-            qDebug()<<tr("File is not open for read");
+            statusBar()->showMessage(tr("File is not open for read"));
         } else {
-            QTextStream stream (&file);
-            stream.setCodec(QTextCodec::codecForName("UTF-8"));
-            mptxt->setText(stream.readAll());
-            ui->statusBar->showMessage(tr("File open"), 1000);
+            QString formatOpenedFile = QFileInfo (currentPath).suffix();            
+            if (formatOpenedFile == "html")
+                slotOpenHtml ();
+            else
+                slotOpenPlainText ();
         }
         file.close();
     }
     else
-        ui->statusBar->showMessage(tr("No file to load"), 5000);
+        ui->statusBar->showMessage(tr("No file to load"), 2000);
+}
+
+void MainWindow::slotOpenHtml()
+{
+    QFile file (currentPath);
+    if (!file.open(QFile::ReadOnly))
+        QMessageBox::warning(this, tr ("Attention!"), tr ("Error!\nCoudnt open file."));
+    QByteArray bArray = file.readAll();
+    QTextCodec *codec = Qt::codecForHtml(bArray);
+    QString str = codec->toUnicode(bArray);
+    mptxt->setHtml(str);
+    statusBar()->showMessage(tr ("File open %1").arg(QDir::toNativeSeparators(currentPath)));
+}
+
+void MainWindow::slotOpenPlainText()
+{
+    QFile file (currentPath);
+    QTextStream stream (&file);
+    stream.setCodec(QTextCodec::codecForName("UTF-8"));
+    mptxt->setText(stream.readAll());
+    ui->statusBar->showMessage(tr("File open"), 2000);
+    statusBar()->showMessage(tr ("File open %1").arg(QDir::toNativeSeparators(currentPath)));
 }
 
 bool MainWindow::slotSave()
 {
     if (currentPath.isEmpty())
        return slotSaveAs();
-    slotSaveTxt();
+    QTextDocumentWriter writer (currentPath);
+    bool bSave = writer.write(mptxt->document());
+    if (bSave) {
+        mptxt->document()->setModified(false);
+        statusBar()->showMessage(tr ("Wrote %1").arg(QDir::toNativeSeparators(currentPath)), 2500);
+    }
+    else
+        statusBar()->showMessage(tr ("Could not write file %1").arg(QDir::toNativeSeparators(currentPath)), 2500);
 
     setWindowTitle(QFileInfo (currentPath).fileName());  //if the saved file has a new name, change the window name to the new name
+    mptxt->document()->setModified(false);
 
     return true;
 }
 
 bool MainWindow::slotSaveAs()
 {
-    currentPath = QFileDialog::getSaveFileName(nullptr, tr("Save file"), "","*.txt;; *.pdf");
-    QString fileName = QFileInfo (currentPath).fileName();    
-    QString format = QFileInfo (currentPath).suffix();
-
-    if (format!="txt" || format != "pdf") {
-        QMessageBox::warning (this, tr("Attention"), tr("Undefined format"), QMessageBox::Ok);
-        ui->statusBar->showMessage(tr("Format is not available"));
+    currentPath = QFileDialog::getSaveFileName(nullptr, tr("Save file"), "","*.html;; *.odt;; *.pdf;; *.txt");
+    if (currentPath.isEmpty())
         return false;
-    }
-    else {
-        if (format=="pdf") {
-            slotSavePdf();
-            ui->statusBar->showMessage(tr("File saved %1").arg(currentPath));
-        }
-        else if (format=="txt") {
-            slotSaveTxt();
-            ui->statusBar->showMessage(tr("File saved %1").arg(currentPath));
-        }
-    }
-
-    setWindowTitle(QFileInfo (currentPath).fileName());
-
-    return true;
-}
-
-void MainWindow::slotSaveTxt ()
-{
-    if (currentPath.isEmpty()) {
-        slotSaveAs();
-        return;
-    }
-    QTextDocumentWriter text {currentPath};
-    if (text.write(mptxt->document())) {
-        mptxt->document()->setModified(false);
-        statusBar()->showMessage(tr("Wrote %1").arg(QDir::toNativeSeparators(currentPath)), 5);
-    } else {
-        statusBar()->showMessage(tr("Could not write a file %1").arg(currentPath));
-    }
+    return slotSave();
 }
 
 void MainWindow::slotSavePdf()
@@ -452,18 +456,12 @@ void MainWindow::saveSetting()
 {
     QSettings settings ("settings.conf", QSettings::IniFormat);
 
-    settings.beginGroup("positionSettings");
-
-    settings.endGroup();
-
-    settings.beginGroup("parametersSetting");
-    settings.setValue("currentPath", currentPath);
-    settings.setValue("mptxtText", mptxt->toPlainText());
-    settings.setValue("mpStyleFontCmbx", mpSizeCmbx->currentText());
+    settings.setValue("currentPath", QDir::toNativeSeparators(currentPath));
+    qDebug()<<"Save settings - " <<settings.value("currentPath").toString();
+    settings.setValue("mpStyleFontCmbx", mpStyleFontCmbx->currentText());
     settings.setValue("mpSizeCmbx", mpSizeCmbx->currentText());
     settings.setValue("mpCodecCmbx", mpCodecCmbx->currentText());
 
-    settings.endGroup();
 
     ui->statusBar->showMessage("Settings save");
 }
@@ -471,15 +469,19 @@ void MainWindow::saveSetting()
 void MainWindow::loadSetting()
 {
     QSettings settings ("settings.conf", QSettings::IniFormat);
-    currentPath = settings.value("currenPath").toString();
-    mptxt->setPlainText(settings.value("mptxText").toString());
-    mpStyleFontCmbx->setCurrentText(settings.value("mpStyleFontCmbx").toString());
-    mpSizeCmbx->setCurrentText(settings.value("mpSizeCmbx").toString());
+    currentPath = settings.value("currenPath", "").toString();
+
+    //mptxt->setPlainText(settings.value("mptxText", "").toString());
+    mpStyleFontCmbx->setCurrentText(settings.value("mpStyleFontCmbx", "Times New Roman").toString());
+    mpSizeCmbx->setCurrentText(settings.value("mpSizeCmbx", "10").toString());
     mpCodecCmbx->setCurrentText(settings.value("mpCodecCmbx").toString());
+
+    slotSetTextSize (mpSizeCmbx->currentText());
+    slotTextStyle(mpStyleFontCmbx->currentText());
 
 
     slotLoad(currentPath);
-    void slotChangeCurrentPosition();
+//    void slotChangeCurrentPosition();
 }
 
 void MainWindow::slotItalic()
@@ -586,7 +588,7 @@ void MainWindow::setCodec(QString newCodec)
 void MainWindow::slotChangedDocument()
 {
     QString fileName = QFileInfo (currentPath).fileName();
-    currentPath.isEmpty() ? setWindowTitle("New document*") : setWindowTitle(fileName+'*');
+    currentPath.isEmpty() ? setWindowTitle("New document") : setWindowTitle(fileName+'*');
 }
 
 void MainWindow::closeEvent(QCloseEvent* e)
@@ -607,3 +609,10 @@ void MainWindow::closeEvent(QCloseEvent* e)
     }
 
 }
+
+void MainWindow::slotRemove()
+{
+    QTextCursor cursor = mptxt->textCursor();
+    cursor.removeSelectedText();
+}
+

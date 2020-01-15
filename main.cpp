@@ -18,7 +18,7 @@ int main(int argc, char *argv[])
 
     int res = a.exec();
 
-    txt.saveSetting();
+
 
 
     return res;

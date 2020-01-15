@@ -16,6 +16,7 @@
 #include <QMenuBar>
 #include <QMenu>
 #include <QPoint>
+#include <QPrinter>
 #include <QString>
 #include <QTextEdit>
 
@@ -64,6 +65,8 @@ private:
     QAction* actionSave;
     QAction* actionCut;
     QAction* actionCopy;
+    QAction* actionPaste;
+    QAction* actionRemove;
     QAction* actionBold;
     QAction* actionItalic;
     QAction* actionUnderLine;
@@ -94,13 +97,19 @@ private slots:
     void slotTextStyle(const QString &);
     void slotSaveTxt ();
     void slotSavePdf ();
+    void slotSaveODT ();
+    void slotSaveHTML ();
     void setCodec(QString newCodec);
     void slotChangedDocument();
-    void closeEvent(QCloseEvent* e);
-
-    //===============
+    void closeEvent(QCloseEvent* e) override;
+    void slotRemove();
+    void slotOpenHtml ();
+    void slotOpenPlainText ();
+    //-------------
 //
- //   void slotRemove();
+//
+
+
 
 };
 

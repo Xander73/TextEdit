@@ -39,6 +39,8 @@ FORMS += \
         Find.ui \
         mainwindow.ui
 
+LIBS            += -lz
+
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin
 else: unix:!android: target.path = /opt/$${TARGET}/bin
@@ -46,3 +48,4 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 
 RESOURCES += \
     Resourses.qrc
+
