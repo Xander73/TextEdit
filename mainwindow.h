@@ -43,6 +43,7 @@ private:
     Ui::MainWindow *ui;
 
     QString currentPath;    //open file path
+    QString bufferText;
     QPalette pal;           //palette to highlight the found string
     QFontComboBox*  mpStyleFontCmbx; //text style
     QComboBox* mpSizeCmbx;
@@ -95,16 +96,16 @@ private slots:
     void slotAlign(QAction*);
     void slotSetTextSize(const QString&);
     void slotTextStyle(const QString &);
-    void slotSaveTxt ();
     void slotSavePdf ();
-    void slotSaveODT ();
-    void slotSaveHTML ();
+    bool slotSaveHTML ();       //slot to change codec
     void setCodec(QString newCodec);
     void slotChangedDocument();
     void closeEvent(QCloseEvent* e) override;
     void slotRemove();
     void slotOpenHtml ();
     void slotOpenPlainText ();
+    void slotChangeCodecCancel ();
+    void slotChangeCodecOk();
     //-------------
 //
 //

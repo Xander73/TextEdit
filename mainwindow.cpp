@@ -1,6 +1,8 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include "Find.h"
+#include "changeCodec.h"
+
 
 #include <QActionGroup>
 #include <QtAlgorithms>
@@ -315,6 +317,7 @@ void MainWindow::menuText()
 void MainWindow::slotNewFile()
 {
    // slotSave();
+    bufferText = mptxt->document()->toHtml();
     mptxt->clear();
     currentPath = "";
     ui->statusBar->showMessage(tr("New file"));
@@ -323,8 +326,6 @@ void MainWindow::slotNewFile()
 
 void MainWindow::slotOpen()
 {
-
-
     slotLoad(
                 currentPath = QFileDialog::getOpenFileName(nullptr, tr("Open File"),"", "*.txt;; *.html;; *.*")
             );
@@ -359,6 +360,7 @@ void MainWindow::slotOpenHtml()
     QByteArray bArray = file.readAll();
     QTextCodec *codec = Qt::codecForHtml(bArray);
     QString str = codec->toUnicode(bArray);
+    bufferText = mptxt->document()->toHtml();
     mptxt->setHtml(str);
     statusBar()->showMessage(tr ("File open %1").arg(QDir::toNativeSeparators(currentPath)));
 }
@@ -368,28 +370,33 @@ void MainWindow::slotOpenPlainText()
     QFile file (currentPath);
     QTextStream stream (&file);
     stream.setCodec(QTextCodec::codecForName("UTF-8"));
+    bufferText = mptxt->document()->toHtml();
     mptxt->setText(stream.readAll());
-    ui->statusBar->showMessage(tr("File open"), 2000);
     statusBar()->showMessage(tr ("File open %1").arg(QDir::toNativeSeparators(currentPath)));
 }
 
 bool MainWindow::slotSave()
 {
-    if (currentPath.isEmpty())
-       return slotSaveAs();
-    QTextDocumentWriter writer (currentPath);
-    bool bSave = writer.write(mptxt->document());
-    if (bSave) {
-        mptxt->document()->setModified(false);
-        statusBar()->showMessage(tr ("Wrote %1").arg(QDir::toNativeSeparators(currentPath)), 2500);
-    }
-    else
-        statusBar()->showMessage(tr ("Could not write file %1").arg(QDir::toNativeSeparators(currentPath)), 2500);
+    return slotSaveHTML();
 
-    setWindowTitle(QFileInfo (currentPath).fileName());  //if the saved file has a new name, change the window name to the new name
-    mptxt->document()->setModified(false);
-
-    return true;
+//    if (currentPath.isEmpty())
+//       return slotSaveAs();
+//    QTextDocumentWriter writer (currentPath);
+//    bool bSave {false};
+//    if (QFileInfo (currentPath).suffix() == "pdf")
+//        slotSavePdf();
+//    else {
+//        bSave = writer.write(mptxt->document());
+//        if (bSave) {
+//            mptxt->document()->setModified(false);
+//            statusBar()->showMessage(tr ("Wrote %1").arg(QDir::toNativeSeparators(currentPath)), 2500);
+//        }
+//        else
+//            statusBar()->showMessage(tr ("Could not write file %1").arg(QDir::toNativeSeparators(currentPath)), 2500);
+//        setWindowTitle(QFileInfo (currentPath).fileName());  //if the saved file has a new name, change the window name to the new name
+//        mptxt->document()->setModified(false);
+//    }
+//    return bSave;
 }
 
 bool MainWindow::slotSaveAs()
@@ -405,9 +412,27 @@ void MainWindow::slotSavePdf()
     QPrinter pdf;
     pdf.setOutputFormat(QPrinter::PdfFormat);
     pdf.setOutputFileName(currentPath);
+    bufferText = mptxt->document()->toHtml();
     mptxt->document()->print(&pdf);
 
     setWindowTitle(QFileInfo (currentPath).fileName());
+    mptxt->document()->setModified(false);
+}
+
+bool MainWindow::slotSaveHTML()
+{
+    QFile file (QApplication::applicationDirPath()+"/temp.html");
+    if (!file.open(QIODevice::WriteOnly)) {
+        QMessageBox::warning(this, tr("Error decoding"), tr("File is not open."));
+        return false;
+    }
+    QString strTemp = mptxt->document()->toHtml();
+    QTextStream outStream (&file);
+    bufferText = mptxt->document()->toHtml();
+    outStream<<strTemp;           //write to open file
+
+    file.close();
+    return true;
 }
 
 void MainWindow::slotSearch()
@@ -482,6 +507,13 @@ void MainWindow::loadSetting()
 
     slotLoad(currentPath);
 //    void slotChangeCurrentPosition();
+}
+
+void MainWindow::slotRemove()
+{
+    bufferText = mptxt->document()->toHtml();
+    QTextCursor cursor = mptxt->textCursor();
+    cursor.removeSelectedText();
 }
 
 void MainWindow::slotItalic()
@@ -576,19 +608,11 @@ void MainWindow::slotTextStyle(const QString &style)
     setCharFormat(format);
 }
 
-void MainWindow::setCodec(QString newCodec)
-{
-    // Codec selection
-     QTextCodec *codec = QTextCodec::codecForName(newCodec.toUtf8());
-
-     // Change codec and set new encoded text
-     mptxt->setText(codec->fromUnicode(mptxt->document()->toPlainText()));
-}
 
 void MainWindow::slotChangedDocument()
 {
     QString fileName = QFileInfo (currentPath).fileName();
-    currentPath.isEmpty() ? setWindowTitle("New document") : setWindowTitle(fileName+'*');
+    mptxt->document()->isModified() ? setWindowTitle("New document") : setWindowTitle(fileName+'*');
 }
 
 void MainWindow::closeEvent(QCloseEvent* e)
@@ -610,9 +634,31 @@ void MainWindow::closeEvent(QCloseEvent* e)
 
 }
 
-void MainWindow::slotRemove()
+void MainWindow::setCodec(QString newCodec)
 {
-    QTextCursor cursor = mptxt->textCursor();
-    cursor.removeSelectedText();
+    QStringList strBufText;
+     strBufText << mptxt->document()->toHtml() << mpCodecCmbx->currentText();
+    // Codec selection
+    QTextCodec *codec = QTextCodec::codecForName(newCodec.toUtf8());
+
+     // Change codec and set new encoded text
+    mptxt->setHtml(codec->fromUnicode(mptxt->document()->toHtml()));
+    if (
+            QMessageBox::information(this, tr ("Codec change"), tr ("Accept the codec?"), QMessageBox::Ok | QMessageBox::No)== QMessageBox::No
+            ) {
+        mptxt->setHtml(strBufText[0]);
+        mpCodecCmbx->setCurrentIndex (mpCodecCmbx->findText(strBufText[1]));
+    }
+
+}
+
+void MainWindow::slotChangeCodecCancel ()
+{
+
+}
+
+void MainWindow::slotChangeCodecOk()
+{
+
 }
 
