@@ -22,9 +22,9 @@ class Find : public QWidget
 
 public:
     explicit Find(QWidget *parent = nullptr);
-    QPushButton* getCmdFind ();
-    QPushButton* getCancel ();
-    QString      getFLineEdit();
+    QPushButton *getCmdFind ();
+    QPushButton *getCancel ();
+    QLineEdit *getFLineEdit();
     ~Find();
 
 private:

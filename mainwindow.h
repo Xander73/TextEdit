@@ -21,6 +21,7 @@
 #include <QTextEdit>
 
 #include "Find.h"
+#include "MyThread.h"
 
 namespace Ui {
 class MainWindow;
@@ -43,7 +44,6 @@ private:
     Ui::MainWindow *ui;
 
     QString currentPath;    //open file path
-    QString bufferText;
     QPalette pal;           //palette to highlight the found string
     QFontComboBox*  mpStyleFontCmbx; //text style
     QComboBox* mpSizeCmbx;
@@ -56,8 +56,9 @@ private:
     void menuText();
 
     void setCharFormat(const QTextCharFormat& fmt);
-
     void loadSetting();
+
+    void textHiglighting ();
 
 
     //actions
@@ -102,13 +103,18 @@ private slots:
     void slotChangedDocument();
     void closeEvent(QCloseEvent* e) override;
     void slotRemove();
-    void slotOpenHtml ();
-    void slotOpenPlainText ();
-    void slotChangeCodecCancel ();
-    void slotChangeCodecOk();
+    void slotOpenHtml (QFile &file);
+    void slotOpenPlainText (QFile &file);
+
     //-------------
 //
 //
+public slots:
+    void slotTextHiglighting(QList <QTextEdit::ExtraSelection> extraSelections);
+
+signals:
+    void TextEditForHighlighting(QList<QString>);
+
 
 
 

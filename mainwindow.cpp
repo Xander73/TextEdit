@@ -1,7 +1,6 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include "Find.h"
-#include "changeCodec.h"
 
 
 #include <QActionGroup>
@@ -29,6 +28,7 @@
 #include <QTextCharFormat>
 #include <QTextDocumentWriter>
 #include <QTextStream>
+#include <QThread>
 
 #if defined(QT_PRINTSUPPORT_LIB)
 #include <QtPrintSupport/qtprintsupportglobal.h>
@@ -101,15 +101,14 @@ MainWindow::MainWindow(QWidget *parent) :
     connect (mFind->getCancel(), SIGNAL (clicked()), this, SLOT (slotFCancel()));
     connect (mFind->getCmdFind(), SIGNAL (clicked()), this, SLOT (slotFind()));
 
+    //the first window title
+    if (!currentPath.isEmpty()) {
+        QFileInfo f (currentPath);
+        setWindowTitle(f.baseName());
+    } else {
+        setWindowTitle("New document");
+    }
 
-//    if (!currentPath.isEmpty()) {
-//        QFileInfo f (currentPath);
-//        setWindowTitle(f.baseName());
-//    } else {
-//        setWindowTitle("New document");
-//    }
-
-    //load old settings
     loadSetting();
 }
 
@@ -201,6 +200,7 @@ void MainWindow::menuEdit()
     a->setShortcut(QKeySequence::SelectAll);
 
     a=m->addAction(QIcon(":/resourses/icons/search.png"), tr("Найти"), this, &MainWindow::slotSearch);
+    a->setShortcut(QKeySequence::Find);
 
 }
 
@@ -317,7 +317,6 @@ void MainWindow::menuText()
 void MainWindow::slotNewFile()
 {
    // slotSave();
-    bufferText = mptxt->document()->toHtml();
     mptxt->clear();
     currentPath = "";
     ui->statusBar->showMessage(tr("New file"));
@@ -337,14 +336,14 @@ void MainWindow::slotLoad(const QString &currentPath)
 {
     if (!currentPath.isEmpty()) {
         QFile file (currentPath);
-        if (!file.open(QIODevice::ReadOnly | QIODevice::WriteOnly)) {
+        if (!file.open(QIODevice::ReadOnly)) {
             statusBar()->showMessage(tr("File is not open for read"));
         } else {
-            QString formatOpenedFile = QFileInfo (currentPath).suffix();            
+            QString formatOpenedFile = QFileInfo (currentPath).suffix();
             if (formatOpenedFile == "html")
-                slotOpenHtml ();
+                slotOpenHtml (file);
             else
-                slotOpenPlainText ();
+                slotOpenPlainText (file);
         }
         file.close();
     }
@@ -352,51 +351,45 @@ void MainWindow::slotLoad(const QString &currentPath)
         ui->statusBar->showMessage(tr("No file to load"), 2000);
 }
 
-void MainWindow::slotOpenHtml()
+void MainWindow::slotOpenHtml(QFile &file)
 {
-    QFile file (currentPath);
-    if (!file.open(QFile::ReadOnly))
-        QMessageBox::warning(this, tr ("Attention!"), tr ("Error!\nCoudnt open file."));
     QByteArray bArray = file.readAll();
     QTextCodec *codec = Qt::codecForHtml(bArray);
     QString str = codec->toUnicode(bArray);
-    bufferText = mptxt->document()->toHtml();
     mptxt->setHtml(str);
     statusBar()->showMessage(tr ("File open %1").arg(QDir::toNativeSeparators(currentPath)));
 }
 
-void MainWindow::slotOpenPlainText()
+void MainWindow::slotOpenPlainText(QFile &file)
 {
-    QFile file (currentPath);
-    QTextStream stream (&file);
-    stream.setCodec(QTextCodec::codecForName("UTF-8"));
-    bufferText = mptxt->document()->toHtml();
-    mptxt->setText(stream.readAll());
+    QByteArray bArray = file.readAll();
+    QTextCodec *codec = QTextCodec::codecForName ("UTF-8");
+    QString str = codec->toUnicode(bArray);
+    mptxt->setPlainText(str);
+
     statusBar()->showMessage(tr ("File open %1").arg(QDir::toNativeSeparators(currentPath)));
 }
 
 bool MainWindow::slotSave()
 {
-    return slotSaveHTML();
-
-//    if (currentPath.isEmpty())
-//       return slotSaveAs();
-//    QTextDocumentWriter writer (currentPath);
-//    bool bSave {false};
-//    if (QFileInfo (currentPath).suffix() == "pdf")
-//        slotSavePdf();
-//    else {
-//        bSave = writer.write(mptxt->document());
-//        if (bSave) {
-//            mptxt->document()->setModified(false);
-//            statusBar()->showMessage(tr ("Wrote %1").arg(QDir::toNativeSeparators(currentPath)), 2500);
-//        }
-//        else
-//            statusBar()->showMessage(tr ("Could not write file %1").arg(QDir::toNativeSeparators(currentPath)), 2500);
-//        setWindowTitle(QFileInfo (currentPath).fileName());  //if the saved file has a new name, change the window name to the new name
-//        mptxt->document()->setModified(false);
-//    }
-//    return bSave;
+    if (currentPath.isEmpty())
+       return slotSaveAs();
+    QTextDocumentWriter writer (currentPath);
+    bool bSave {false};
+    if (QFileInfo (currentPath).suffix() == "pdf")
+        slotSavePdf();
+    else {
+        bSave = writer.write(mptxt->document());
+        if (bSave) {
+            mptxt->document()->setModified(false);
+            statusBar()->showMessage(tr ("Wrote %1").arg(QDir::toNativeSeparators(currentPath)), 2500);
+        }
+        else
+            statusBar()->showMessage(tr ("Could not write file %1").arg(QDir::toNativeSeparators(currentPath)), 2500);
+        setWindowTitle(QFileInfo (currentPath).fileName());  //if the saved file has a new name, change the window name to the new name
+        mptxt->document()->setModified(false);
+    }
+    return bSave;
 }
 
 bool MainWindow::slotSaveAs()
@@ -412,7 +405,6 @@ void MainWindow::slotSavePdf()
     QPrinter pdf;
     pdf.setOutputFormat(QPrinter::PdfFormat);
     pdf.setOutputFileName(currentPath);
-    bufferText = mptxt->document()->toHtml();
     mptxt->document()->print(&pdf);
 
     setWindowTitle(QFileInfo (currentPath).fileName());
@@ -428,7 +420,6 @@ bool MainWindow::slotSaveHTML()
     }
     QString strTemp = mptxt->document()->toHtml();
     QTextStream outStream (&file);
-    bufferText = mptxt->document()->toHtml();
     outStream<<strTemp;           //write to open file
 
     file.close();
@@ -442,34 +433,60 @@ void MainWindow::slotSearch()
 
 void MainWindow::slotFind()
 {
-//    QList <QTextEdit::ExtraSelection> extraSelections;
-//    while(mptxt->find(mFind->getLEText()))
-//            {
-//                QTextEdit::ExtraSelection extra;
-//                extra.format.setBackground(QColor(Qt::cyan).lighter(80));
-//                mptxt->setTextColor(Qt::white);
-//                extra.cursor = mptxt->textCursor();
-//                extraSelections.append(extra);
-//                mptxt->setExtraSelections(extraSelections);
+    QThread th
+    if (mFind->getFLineEdit()->isModified())
+        textHiglighting ();
+       // th.create(textHiglighting);
 
-//            }
-//    mptxt->setExtraSelections(extraSelections);
-//    mptxt->moveCursor(QTextCursor::Start);
+    //if the text finished go back to the beginning and finde the first overlap
+    if (!mptxt->find(mFind->getFLineEdit()->text())) {
+        mptxt->moveCursor(QTextCursor::Start);
+        mptxt->find(mFind->getFLineEdit()->text());
+    }
 
-    //mptxt->find(mFind->getFLineEdit());
-   // mptxt->setPalette()
-
-
-    mptxt->find(mFind->getFLineEdit());
     pal = mptxt->palette();
     for (int colorRole=0; colorRole<QPalette::NColorRoles; ++colorRole)
         pal.setColor(QPalette::Inactive, static_cast<QPalette::ColorRole>(colorRole) , pal.color(QPalette::Active, static_cast<QPalette::ColorRole>(colorRole)));
-    qDebug()<<mFind->getFLineEdit();
     mptxt->setPalette(pal);
-    QWidget::activateWindow();
-    setWindowFlag(Qt::WindowStaysOnTopHint);
+    //QWidget::activateWindow();
+    //setWindowFlag(Qt::WindowStaysOnTopHint);
 
 
+}
+
+void MainWindow::textHiglighting ()
+{
+    mFind->getFLineEdit()->setModified(false)  //do not highlight text until the FLineEdit changes
+
+    QList <QString> lstStrings;
+    lstStrings<<mptxt->toPlainText()<<mFind->getFLineEdit()->text();
+    emit TextEditForHighlighting (lstStrings);
+    MyThread *thread;
+    connect(this, &MainWindow::TextEditForHighlighting,
+            thread, &MyThread::slotThHighlighting);     //send data to the thread
+    connect(thread, &MyThread::highLighting, this, &MainWindow::slotTextHiglighting);
+
+}
+
+void MainWindow::slotTextHiglighting(QList <QTextEdit::ExtraSelection> extraSelections)
+{
+
+    //mptxt->moveCursor(QTextCursor::Start);
+    //QList <QTextEdit::ExtraSelection> extraSelections;
+
+    //thread start
+
+//    while(mptxt->find(mFind->getFLineEdit()->text()))
+//    {
+//        QTextEdit::ExtraSelection extra;
+//        extra.format.setBackground(QColor(Qt::yellow).lighter(140));
+//        //mptxt->setTextColor(Qt::white);
+//        extra.cursor = mptxt->textCursor();
+//        extraSelections.append(extra);
+//        mptxt->setExtraSelections(extraSelections);
+//    }
+
+    mptxt->setExtraSelections(extraSelections)
 }
 
 void MainWindow::slotFCancel()
@@ -511,7 +528,6 @@ void MainWindow::loadSetting()
 
 void MainWindow::slotRemove()
 {
-    bufferText = mptxt->document()->toHtml();
     QTextCursor cursor = mptxt->textCursor();
     cursor.removeSelectedText();
 }
@@ -608,7 +624,6 @@ void MainWindow::slotTextStyle(const QString &style)
     setCharFormat(format);
 }
 
-
 void MainWindow::slotChangedDocument()
 {
     QString fileName = QFileInfo (currentPath).fileName();
@@ -646,19 +661,10 @@ void MainWindow::setCodec(QString newCodec)
     if (
             QMessageBox::information(this, tr ("Codec change"), tr ("Accept the codec?"), QMessageBox::Ok | QMessageBox::No)== QMessageBox::No
             ) {
-        mptxt->setHtml(strBufText[0]);
-        mpCodecCmbx->setCurrentIndex (mpCodecCmbx->findText(strBufText[1]));
+        mptxt->setHtml(strBufText[0]);      //returns the previous codec
+        mpCodecCmbx->setCurrentIndex (mpCodecCmbx->findText(strBufText[1]));    //sets the name of the previous codec
     }
 
 }
 
-void MainWindow::slotChangeCodecCancel ()
-{
-
-}
-
-void MainWindow::slotChangeCodecOk()
-{
-
-}
 

@@ -28,11 +28,13 @@ CONFIG += c++11
 
 SOURCES += \
         Find.cpp \
+        MyThread.cpp \
         main.cpp \
         mainwindow.cpp
 
 HEADERS += \
         Find.h \
+        MyThread.h \
         mainwindow.h
 
 FORMS += \

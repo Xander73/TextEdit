@@ -10,7 +10,7 @@ Find::Find(QWidget *parent) :
 
     setFixedSize(315, 74);
     setWindowFlag(Qt::WindowStaysOnTopHint);
-    //setWindowModality(Qt::ApplicationModal);
+    setWindowModality(Qt::ApplicationModal);
     setWindowFlag(Qt::WindowDoesNotAcceptFocus);
 }
 
@@ -27,7 +27,7 @@ QPushButton* Find::getCancel ()
 {
     return ui->cmdCancel;
 }
-QString      Find::getFLineEdit()
+QLineEdit* Find::getFLineEdit()
 {
-    return ui->mpFLineEdit->text();
+    return ui->mpFLineEdit;
 }
