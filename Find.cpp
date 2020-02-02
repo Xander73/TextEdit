@@ -9,9 +9,12 @@ Find::Find(QWidget *parent) :
     ui->mpFLabel->setBuddy(ui->mpFLineEdit);
 
     setFixedSize(315, 74);
+    setWindowTitle(tr("Найти"));
     setWindowFlag(Qt::WindowStaysOnTopHint);
     setWindowModality(Qt::ApplicationModal);
     setWindowFlag(Qt::WindowDoesNotAcceptFocus);
+
+    connect (ui->cmdCancel, &QPushButton::clicked, this, &Find::slotExit);
 }
 
 Find::~Find()
@@ -19,14 +22,26 @@ Find::~Find()
     delete ui;
 }
 
+void Find::closeEvent(QCloseEvent *event)
+{
+    emit signalExit();
+}
+
+void Find::slotExit()
+{
+    this->close();
+    ui->mpFLineEdit->clear();
+}
+
 QPushButton* Find::getCmdFind ()
 {
     return ui->cmdFind;
 }
-QPushButton* Find::getCancel ()
-{
-    return ui->cmdCancel;
-}
+//void Find::getCancel ()
+//{
+//    if (ui->cmdCancel->clicked())
+//        emit signalExit();
+//}
 QLineEdit* Find::getFLineEdit()
 {
     return ui->mpFLineEdit;

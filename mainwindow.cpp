@@ -1,6 +1,7 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include "Find.h"
+#include "highlighter.h"
 
 
 #include <QActionGroup>
@@ -12,7 +13,6 @@
 #include <QDebug>
 #include <QDial>
 #include <QEvent>
-#include <QList>
 #include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
@@ -77,7 +77,7 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(mptxt->document(), &QTextDocument::modificationChanged,
             this, &MainWindow::slotChangedDocument);
 
-    connect (mptxt, SIGNAL (cursorPositionChanged()), this, SLOT (slotChangeCurrentPosition()));
+    connect (mptxt, &QTextEdit::cursorPositionChanged, this, &MainWindow::slotChangeCurrentPosition);
 
     setWindowModified(mptxt->document()->isModified());
 
@@ -94,12 +94,12 @@ MainWindow::MainWindow(QWidget *parent) :
 
     //context menu
     mptxt->setContextMenuPolicy(Qt::CustomContextMenu);    
-    connect(mptxt, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(slotCustomMenuRequested(QPoint)));
+    connect(mptxt, &QTextEdit::customContextMenuRequested, this, &MainWindow::slotCustomMenuRequested);
 
     mFind = new Find ();
     //connects window Find
-    connect (mFind->getCancel(), SIGNAL (clicked()), this, SLOT (slotFCancel()));
-    connect (mFind->getCmdFind(), SIGNAL (clicked()), this, SLOT (slotFind()));
+    connect (mFind->getCmdFind(), &QPushButton::clicked, this, &MainWindow::slotFind);
+    connect (mFind, &Find::signalExit, this, &MainWindow::slotFCancel);
 
     //the first window title
     if (!currentPath.isEmpty()) {
@@ -109,7 +109,7 @@ MainWindow::MainWindow(QWidget *parent) :
         setWindowTitle("New document");
     }
 
-    loadSetting();
+    //loadSetting();
 }
 
 MainWindow::~MainWindow()
@@ -425,72 +425,84 @@ bool MainWindow::slotSaveHTML()
     file.close();
     return true;
 }
-
+//-------------------------------------------
 void MainWindow::slotSearch()
 {
     mFind->show();
 }
 
 void MainWindow::slotFind()
-{
-    QThread th
-    if (mFind->getFLineEdit()->isModified())
-        textHiglighting ();
-       // th.create(textHiglighting);
-
+{    
+    qDebug()<<"Main Window Find";
+    slotHighlight();
     //if the text finished go back to the beginning and finde the first overlap
     if (!mptxt->find(mFind->getFLineEdit()->text())) {
         mptxt->moveCursor(QTextCursor::Start);
         mptxt->find(mFind->getFLineEdit()->text());
     }
 
+    //change gray highlighter to blue
     pal = mptxt->palette();
     for (int colorRole=0; colorRole<QPalette::NColorRoles; ++colorRole)
         pal.setColor(QPalette::Inactive, static_cast<QPalette::ColorRole>(colorRole) , pal.color(QPalette::Active, static_cast<QPalette::ColorRole>(colorRole)));
     mptxt->setPalette(pal);
+
     //QWidget::activateWindow();
     //setWindowFlag(Qt::WindowStaysOnTopHint);
 
 
 }
 
-void MainWindow::textHiglighting ()
-{
-    mFind->getFLineEdit()->setModified(false)  //do not highlight text until the FLineEdit changes
+void MainWindow::slotHighlight()
+{    
+    qDebug()<<"Main Window slotHiglight";
+    Highlighter* highlighter = new Highlighter(mptxt->toHtml(), mFind->getFLineEdit()->text(), mptxt);
+    qDebug()<<"Main Window new Higlight";
+    QThread* thread = new QThread;
+    qDebug()<<"Main Window make QThread";
+    highlighter->moveToThread(thread);
+    qDebug()<<"Main Window move to thread";
 
-    QList <QString> lstStrings;
-    lstStrings<<mptxt->toPlainText()<<mFind->getFLineEdit()->text();
-    emit TextEditForHighlighting (lstStrings);
-    MyThread *thread;
-    connect(this, &MainWindow::TextEditForHighlighting,
-            thread, &MyThread::slotThHighlighting);     //send data to the thread
-    connect(thread, &MyThread::highLighting, this, &MainWindow::slotTextHiglighting);
+    if (mFind->getFLineEdit()->isModified()) {
+        mFind->getFLineEdit()->setModified(false);  //reset line change QLineEdit in Find
+        mptxt->moveCursor(QTextCursor::Start);
+        thread->start();
+        qDebug()<<"Main Window thread start";
+
+        if (mFind->getFLineEdit()->isModified())
+            emit signalSendText(mFind->getFLineEdit()->text());
+//        QList <QTextEdit::ExtraSelection> extraSelections;
+//        while(mptxt->find(mFind->getFLineEdit()->text()))
+//        {
+//            QTextEdit::ExtraSelection extra;
+//            extra.format.setBackground(QColor(Qt::yellow).lighter(140));    //backgroun color
+//            //mptxt->setTextColor(Qt::white);                               //text color
+//            extra.cursor = mptxt->textCursor();
+//            extraSelections.append(extra);
+//        }
+//        mptxt->setExtraSelections(extraSelections);
+    }
+
+    connect (this, &MainWindow::signalSendText, highlighter, &Highlighter::slotHighlightering, Qt::DirectConnection );
+    connect (highlighter, &Highlighter::signalSendHighlighter, this, &MainWindow::slotSetHighlight);
+    connect (thread, &QThread::started, highlighter, &Highlighter::slotHighlightering);
+    connect (thread, &QThread::finished, &QThread::quit);
+    connect (highlighter, &Highlighter::signalFinished, &Highlighter::slotHighlighterFinish);
+
 
 }
 
-void MainWindow::slotTextHiglighting(QList <QTextEdit::ExtraSelection> extraSelections)
+void MainWindow::slotSetHighlight(QList<QTextEdit::ExtraSelection> extraSelections)
 {
-
-    //mptxt->moveCursor(QTextCursor::Start);
-    //QList <QTextEdit::ExtraSelection> extraSelections;
-
-    //thread start
-
-//    while(mptxt->find(mFind->getFLineEdit()->text()))
-//    {
-//        QTextEdit::ExtraSelection extra;
-//        extra.format.setBackground(QColor(Qt::yellow).lighter(140));
-//        //mptxt->setTextColor(Qt::white);
-//        extra.cursor = mptxt->textCursor();
-//        extraSelections.append(extra);
-//        mptxt->setExtraSelections(extraSelections);
-//    }
-
-    mptxt->setExtraSelections(extraSelections)
+    mptxt->setExtraSelections(extraSelections);
+    qDebug()<<"Main Window set selection";
 }
 
 void MainWindow::slotFCancel()
-{
+{        
+    mFind->getFLineEdit()->clear();
+    mptxt->setBackgroundRole(QPalette::Background);
+    qDebug()<<"SetBackground";
     mFind->close();
 }
 

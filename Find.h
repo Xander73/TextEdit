@@ -23,12 +23,19 @@ class Find : public QWidget
 public:
     explicit Find(QWidget *parent = nullptr);
     QPushButton *getCmdFind ();
-    QPushButton *getCancel ();
+//    void getCancel ();
     QLineEdit *getFLineEdit();
     ~Find();
 
 private:
     Ui::Find *ui;
+public slots:
+    void closeEvent(QCloseEvent *event) override;
+
+private slots:
+    void slotExit();
+signals:
+    void signalExit();
 };
 
 #endif // FIND_H

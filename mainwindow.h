@@ -13,15 +13,17 @@
 #include <QComboBox>
 #include <QContextMenuEvent>
 #include <QFontComboBox>
+#include <QList>
 #include <QMenuBar>
 #include <QMenu>
 #include <QPoint>
 #include <QPrinter>
 #include <QString>
+#include <QTextDecoder>
 #include <QTextEdit>
+#include <QThread>
 
 #include "Find.h"
-#include "MyThread.h"
 
 namespace Ui {
 class MainWindow;
@@ -58,7 +60,6 @@ private:
     void setCharFormat(const QTextCharFormat& fmt);
     void loadSetting();
 
-    void textHiglighting ();
 
 
     //actions
@@ -88,6 +89,8 @@ private slots:
     bool slotSaveAs();
     void slotSearch();
     void slotFind();
+    void slotHighlight();
+    void slotSetHighlight(QList <QTextEdit::ExtraSelection>);
     void slotFCancel();
     void slotBold();
     void slotItalic();    
@@ -109,15 +112,8 @@ private slots:
     //-------------
 //
 //
-public slots:
-    void slotTextHiglighting(QList <QTextEdit::ExtraSelection> extraSelections);
-
 signals:
-    void TextEditForHighlighting(QList<QString>);
-
-
-
-
+    void signalSendText (QString);
 };
 
 #endif // MAINWINDOW_H
