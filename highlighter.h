@@ -15,7 +15,8 @@ class Highlighter : public QObject
     Q_OBJECT
 
 public:
-    Highlighter(QString, QString, QObject *parent = nullptr);
+    Highlighter(QString, QString, QObject *parent = nullptr);    
+    QList <QTextEdit::ExtraSelection> extraSelections;
 
     ~Highlighter ()
     {
@@ -24,7 +25,7 @@ public:
 
 public slots:
     void slotHighlightering ();
-    void slotHighlighterFinish();
+    void slotExit();
 signals:
     void signalSendHighlighter(QList<QTextEdit::ExtraSelection>);
     void signalFinished();

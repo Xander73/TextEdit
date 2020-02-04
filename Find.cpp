@@ -29,19 +29,14 @@ void Find::closeEvent(QCloseEvent *event)
 
 void Find::slotExit()
 {
-    this->close();
-    ui->mpFLineEdit->clear();
+    this->close();      //when closing, a close event is generated
 }
 
 QPushButton* Find::getCmdFind ()
 {
     return ui->cmdFind;
 }
-//void Find::getCancel ()
-//{
-//    if (ui->cmdCancel->clicked())
-//        emit signalExit();
-//}
+
 QLineEdit* Find::getFLineEdit()
 {
     return ui->mpFLineEdit;

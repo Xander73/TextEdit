@@ -9,14 +9,15 @@ Highlighter::Highlighter(QString strMain, QString strSub, QObject *parent) : QOb
     qRegisterMetaType<QTextCharFormat>();
     mpText = new QTextEdit ();
     mpText->setHtml(mstrMainText);
-    qDebug()<<"highligh constructor";
+    qDebug()<<"Highlighter constructor";
+
 }
 
 void Highlighter::slotHighlightering()
 {
-    qDebug()<<"highlighter slot highlightering";
-    QList <QTextEdit::ExtraSelection> extraSelections;
-    qDebug()<<"highligh make extra selections";
+    qDebug()<<"sub str"<<mstrSubString;
+    qDebug()<<"";
+    qDebug()<<mstrMainText;
     while(mpText->find(mstrSubString))
     {
         QTextEdit::ExtraSelection extra;
@@ -24,18 +25,25 @@ void Highlighter::slotHighlightering()
         //mptxt->setTextColor(Qt::white);                               //text color
         extra.cursor = mpText->textCursor();
         extraSelections.append(extra);
-    }
-    qDebug()<<"highligh while ended";
+    }    
+    qDebug()<<"while";
     emit signalSendHighlighter(extraSelections);
-    qDebug()<<"highligh emit";
-    emit signalFinished();
+
 }
 
-void Highlighter::slotHighlighterFinish()
+void Highlighter::slotExit()
 {
+    for (auto a = extraSelections.begin(); a!=extraSelections.end(); a++)
+    {
+        a->format.setBackground(QColor(Qt::white));
+    }
+    emit signalSendHighlighter(extraSelections);  //cancel higlighting
+    emit signalFinished();
     mstrSubString = "";
     mstrMainText = "";
     mpText->close();
+    extraSelections.clear();
+
 }
 
 

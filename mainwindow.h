@@ -24,6 +24,7 @@
 #include <QThread>
 
 #include "Find.h"
+#include "highlighter.h"
 
 namespace Ui {
 class MainWindow;
@@ -46,11 +47,14 @@ private:
     Ui::MainWindow *ui;
 
     QString currentPath;    //open file path
+    QString fileName;
     QPalette pal;           //palette to highlight the found string
     QFontComboBox*  mpStyleFontCmbx; //text style
     QComboBox* mpSizeCmbx;
     QComboBox* mpCodecCmbx;
-    QString fileName;
+
+    Highlighter* highlighter;
+    QThread* thread;
 
         // menu bar and tool bar
     void menuFile();
