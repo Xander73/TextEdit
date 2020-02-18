@@ -14,6 +14,7 @@ Find::Find(QWidget *parent) :
     setWindowModality(Qt::ApplicationModal);
     setWindowFlag(Qt::WindowDoesNotAcceptFocus);
 
+
     connect (ui->cmdCancel, &QPushButton::clicked, this, &Find::slotExit);
 }
 

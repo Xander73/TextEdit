@@ -22,9 +22,16 @@
 #include <QTextDecoder>
 #include <QTextEdit>
 #include <QThread>
+#include <QXmlStreamAttribute>
+#include <QXmlStreamReader>
+#include <QXmlStreamWriter>
+
 
 #include "Find.h"
 #include "highlighter.h"
+#include <QtGui/private/qzipwriter_p.h>
+#include <QtGui/private/qzipreader_p.h>
+
 
 namespace Ui {
 class MainWindow;
@@ -53,7 +60,7 @@ private:
     QComboBox* mpSizeCmbx;
     QComboBox* mpCodecCmbx;
 
-    Highlighter* highlighter;
+    Highlighter *highlighter;
     QThread* thread;
 
         // menu bar and tool bar
@@ -96,6 +103,7 @@ private slots:
     void slotHighlight();
     void slotSetHighlight(QList <QTextEdit::ExtraSelection>);
     void slotFCancel();
+    void slotDeleteHighlighter (QList<QTextEdit::ExtraSelection> extraSelections);
     void slotBold();
     void slotItalic();    
     void slotUnderLine();
@@ -112,6 +120,7 @@ private slots:
     void slotRemove();
     void slotOpenHtml (QFile &file);
     void slotOpenPlainText (QFile &file);
+    void slotOpenOdd (QString);
 
     //-------------
 //

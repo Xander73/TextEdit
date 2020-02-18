@@ -20,6 +20,7 @@ public:
 
     ~Highlighter ()
     {
+        delete mpText;
         qDebug()<<"Hihlighter destructor";
     }
 
@@ -28,7 +29,7 @@ public slots:
     void slotExit();
 signals:
     void signalSendHighlighter(QList<QTextEdit::ExtraSelection>);
-    void signalFinished();
+    void signalFinished(QList<QTextEdit::ExtraSelection>);
 
 
 private:

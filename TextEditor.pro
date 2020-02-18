@@ -4,7 +4,7 @@
 #
 #-------------------------------------------------
 
-QT       += core gui
+QT       += core gui gui-private
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 requires(qtConfig(filedialog))

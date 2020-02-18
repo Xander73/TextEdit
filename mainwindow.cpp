@@ -30,6 +30,8 @@
 #include <QTextStream>
 #include <QThread>
 
+#include <QDesktopWidget>
+
 #if defined(QT_PRINTSUPPORT_LIB)
 #include <QtPrintSupport/qtprintsupportglobal.h>
 #if QT_CONFIG(printer)
@@ -51,6 +53,7 @@ MainWindow::MainWindow(QWidget *parent) :
     mptxt = new QTextEdit(this);
     mpStyleFontCmbx = new QFontComboBox();  //initialize text style
     mpSizeCmbx = new QComboBox();           //initialize combo box
+    highlighter = nullptr;
 
     setCentralWidget(mptxt);
 
@@ -98,6 +101,8 @@ MainWindow::MainWindow(QWidget *parent) :
 
     //Find window
     mFind = new Find ();
+
+
     connect (mFind->getCmdFind(), &QPushButton::clicked, this, &MainWindow::slotFind);
     connect (mFind, &Find::signalExit, this, &MainWindow::slotFCancel);
 
@@ -111,7 +116,10 @@ MainWindow::MainWindow(QWidget *parent) :
         setWindowTitle(fileName);
     }
 
-    //loadSetting();
+    loadSetting();
+
+
+
 }
 
 MainWindow::~MainWindow()
@@ -318,6 +326,7 @@ void MainWindow::menuText()
 
 void MainWindow::slotNewFile()
 {
+
    // slotSave();
     mptxt->clear();
     currentPath = "";
@@ -371,6 +380,11 @@ void MainWindow::slotOpenPlainText(QFile &file)
     mptxt->setPlainText(str);
 
     statusBar()->showMessage(tr ("File open %1").arg(QDir::toNativeSeparators(currentPath)), 2500);
+}
+
+void MainWindow::slotOpenOdd(QString)
+{
+
 }
 
 bool MainWindow::slotSave()
@@ -428,31 +442,40 @@ bool MainWindow::slotSaveHTML()
     file.close();
     return true;
 }
-//-------------------------------------------
+
 void MainWindow::slotSearch()
 {
+    QPoint centralPoint (this->x()+this->width()/2, this->y()+this->height()/2);
+    mFind->setGeometry(centralPoint.x()-mFind->width()/2 , centralPoint.y()+mFind->height()/2,      //set the finde window to the center the main window
+                       mFind->width(), mFind->height());
     mFind->show();
 }
 
 void MainWindow::slotFind()
-{    
-    //thread to highlighter
-highlighter = new Highlighter(mptxt->toHtml(),
-                      mFind->getFLineEdit()->text(), mptxt);
-thread = new QThread;
-highlighter->moveToThread(thread);
-
-connect (highlighter, &Highlighter::signalSendHighlighter, this, &MainWindow::slotSetHighlight);
-connect (thread, &QThread::started, highlighter, &Highlighter::slotHighlightering);
-connect (mFind, &Find::signalExit, highlighter, &Highlighter::slotExit);
-
-    qDebug()<<"Main Window Find";
+{
     slotHighlight();
-    //if the text finished go back to the beginning and finde the first overlap
+
+    //if the find finished go back to the beginning and finde the first overlap
     if (!mptxt->find(mFind->getFLineEdit()->text())) {
         mptxt->moveCursor(QTextCursor::Start);
         mptxt->find(mFind->getFLineEdit()->text());
+
+        QPoint centralPoint (this->x()+this->width()/2, this->y()+this->height()/2);
+        mFind->setGeometry(centralPoint.x()-mFind->width()/2 , centralPoint.y()+mFind->height()/2,      //set the finde window to the center the main window
+                           mFind->width(), mFind->height());
+    } else {
+        QPoint pos = mptxt->mapToGlobal( QPoint(mptxt->cursorRect(mptxt->textCursor()).x(),
+                                                mptxt->cursorRect(mptxt->textCursor()).y())
+                                         );
+        if ((pos.x() >= mFind->geometry().x()  && pos.x() < (mFind->geometry().x() + mFind->geometry().width())) &&         //if the cursor under the find window
+                ((pos.y() >= mFind->geometry().y()-45)  && pos.y() < (mFind->geometry().y() + mFind->geometry().height()))) {    // move the window
+            QPoint oldPos = QPoint (mFind->geometry().x(), mFind->geometry().y());
+            mFind->setGeometry(mFind->geometry().x(), pos.y()-mFind->geometry().height()-5,mFind->geometry().width(),mFind->geometry().height());  //-5 so that the next position on this line does not move the Find Window
+            QCursor::setPos(QCursor::pos().x(), QCursor::pos().y() - (oldPos.y()-mFind->geometry().y()));
+        }
     }
+
+
 
     //change gray highlighter to blue
     pal = mptxt->palette();
@@ -463,23 +486,30 @@ connect (mFind, &Find::signalExit, highlighter, &Highlighter::slotExit);
     //QWidget::activateWindow();
     //setWindowFlag(Qt::WindowStaysOnTopHint);
 
-
 }
 
 void MainWindow::slotHighlight()
 {
-
-
     if (mFind->getFLineEdit()->isModified()) {
+        thread = new QThread;
+        if (!highlighter) {
+            highlighter = new Highlighter(mptxt->toHtml(), mFind->getFLineEdit()->text(), mptxt);
+        } else {
+            Highlighter *temp = highlighter;
+            highlighter = new Highlighter(mptxt->toHtml(), mFind->getFLineEdit()->text(), mptxt);
+            //delete  temp;
+        }
+        highlighter->moveToThread(thread);
+
+        connect (highlighter, &Highlighter::signalSendHighlighter, this, &MainWindow::slotSetHighlight);
+        connect (thread, &QThread::started, highlighter, &Highlighter::slotHighlightering);
+        connect (mFind, &Find::signalExit, highlighter, &Highlighter::slotExit);
+        connect (highlighter, &Highlighter::signalFinished, this, &MainWindow::slotDeleteHighlighter);
+
         mFind->getFLineEdit()->setModified(false);  //reset line change QLineEdit in Find
         mptxt->moveCursor(QTextCursor::Start);
         thread->start();
-        qDebug()<<"Thread start";
     }
-
-
-
-
 }
 
 void MainWindow::slotSetHighlight(QList<QTextEdit::ExtraSelection> extraSelections)
@@ -491,6 +521,14 @@ void MainWindow::slotFCancel()
 {        
     mFind->getFLineEdit()->clear();
     mFind->close();
+
+}
+
+void MainWindow::slotDeleteHighlighter (QList<QTextEdit::ExtraSelection> extraSelections)
+{
+    mptxt->setExtraSelections(extraSelections);
+
+    thread->exit();
 }
 
 void MainWindow::saveSetting()
@@ -502,13 +540,24 @@ void MainWindow::saveSetting()
     settings.setValue("mpStyleFontCmbx", mpStyleFontCmbx->currentText());
     settings.setValue("mpSizeCmbx", mpSizeCmbx->currentText());
     settings.setValue("mpCodecCmbx", mpCodecCmbx->currentText());
+    settings.setValue("coordinateLeftAngel",
+                      (QPoint(geometry().x(),geometry().y())));    //31 is top edge
+    settings.setValue("heightWindow", height());
+    settings.setValue("widthWindow", height());
 
-    ui->statusBar->showMessage(tr ("Settings save"), 2500);
+qDebug()<<mapToGlobal((QPoint(pos().x(),pos().y())));
+
+
 }
 
 void MainWindow::loadSetting()
 {
     QSettings settings ("settings.conf", QSettings::IniFormat);
+    QPoint p = settings.value("coordinateLeftAngel").toPoint();
+    setGeometry(p.x(),p.y(),
+                QApplication::desktop()->width(), QApplication::desktop()->height());
+//    setGeometry(0,0,0,0);
+
     currentPath = settings.value("currenPath", "").toString();
 
     //mptxt->setPlainText(settings.value("mptxText", "").toString());
